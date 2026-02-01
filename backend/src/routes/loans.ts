@@ -1,4 +1,9 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+
+// Type for routes with :id parameter
+interface IdParams {
+  id: string;
+}
 import { eq, isNull, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
@@ -32,7 +37,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /loans/:id - Get single loan
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
     const result = await db
       .select()
@@ -80,7 +85,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // PATCH /loans/:id - Update loan
-router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
     const parsed = updateLoanSchema.safeParse(req.body);
 
@@ -131,7 +136,7 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
 });
 
 // DELETE /loans/:id - Soft delete loan
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
     // Check if loan exists
     const existing = await db
