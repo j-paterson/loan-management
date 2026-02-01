@@ -12,4 +12,3 @@ export const loans = pgTable('loans', {
 });
 
 export type Loan = typeof loans.$inferSelect;
-export type NewLoan = typeof loans.$inferInsert;
