@@ -15,7 +15,9 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@dinero.js/currencies": "^2.0.0-alpha.15",
     "cors": "^2.8.6",
+    "dinero.js": "^2.0.0-alpha.15",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",

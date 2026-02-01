@@ -1,7 +1,15 @@
+/**
+ * Loan types
+ *
+ * All monetary values are integers:
+ * - principalAmountMicros: Amount in micro-units (10,000ths of a dollar)
+ * - interestRateBps: Interest rate in basis points (1 bp = 0.01%)
+ */
+
 export interface Loan {
   id: string;
-  principalAmount: string;
-  interestRate: string;
+  principalAmountMicros: number;
+  interestRateBps: number;
   termMonths: number;
   status: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
   createdAt: string;
@@ -10,8 +18,8 @@ export interface Loan {
 }
 
 export interface CreateLoanInput {
-  principalAmount: number;
-  interestRate: number;
+  principalAmountMicros: number;
+  interestRateBps: number;
   termMonths: number;
   status?: 'DRAFT' | 'ACTIVE';
 }

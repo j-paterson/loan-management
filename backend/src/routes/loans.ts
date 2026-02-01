@@ -1,21 +1,34 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { eq, isNull, and } from 'drizzle-orm';
+import { z } from 'zod';
+import { db } from '../db/index.js';
+import { loans } from '../db/schema.js';
+import { MICROS_PER_DOLLAR } from '../lib/money.js';
 
 // Type for routes with :id parameter
 interface IdParams {
   id: string;
 }
-import { eq, isNull, and } from 'drizzle-orm';
-import { z } from 'zod';
-import { db } from '../db/index.js';
-import { loans } from '../db/schema.js';
 
 const router = Router();
 
-// Validation schemas
+// Max principal: $10,000,000 in micro-units
+const MAX_PRINCIPAL_MICROS = 10_000_000 * MICROS_PER_DOLLAR;
+
+// Validation schemas - all integers
 const createLoanSchema = z.object({
-  principalAmount: z.number().positive('Principal amount must be positive').max(10_000_000, 'Principal amount too large'),
-  interestRate: z.number().min(0, 'Interest rate cannot be negative').max(1, 'Interest rate cannot exceed 100%'),
-  termMonths: z.number().int('Term must be a whole number').min(1, 'Term must be at least 1 month').max(600, 'Term cannot exceed 600 months'),
+  principalAmountMicros: z.number()
+    .int('Amount must be an integer')
+    .positive('Amount must be positive')
+    .max(MAX_PRINCIPAL_MICROS, 'Amount too large'),
+  interestRateBps: z.number()
+    .int('Rate must be an integer')
+    .min(0, 'Rate cannot be negative')
+    .max(10000, 'Rate cannot exceed 100%'), // 10000 bps = 100%
+  termMonths: z.number()
+    .int('Term must be a whole number')
+    .min(1, 'Term must be at least 1 month')
+    .max(600, 'Term cannot exceed 600 months'),
   status: z.enum(['DRAFT', 'ACTIVE']).optional(),
 });
 
@@ -71,8 +84,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const result = await db
       .insert(loans)
       .values({
-        principalAmount: parsed.data.principalAmount.toString(),
-        interestRate: parsed.data.interestRate.toString(),
+        principalAmountMicros: parsed.data.principalAmountMicros,
+        interestRateBps: parsed.data.interestRateBps,
         termMonths: parsed.data.termMonths,
         status: parsed.data.status ?? 'DRAFT',
       })
@@ -110,11 +123,11 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
 
-    if (parsed.data.principalAmount !== undefined) {
-      updates.principalAmount = parsed.data.principalAmount.toString();
+    if (parsed.data.principalAmountMicros !== undefined) {
+      updates.principalAmountMicros = parsed.data.principalAmountMicros;
     }
-    if (parsed.data.interestRate !== undefined) {
-      updates.interestRate = parsed.data.interestRate.toString();
+    if (parsed.data.interestRateBps !== undefined) {
+      updates.interestRateBps = parsed.data.interestRateBps;
     }
     if (parsed.data.termMonths !== undefined) {
       updates.termMonths = parsed.data.termMonths;

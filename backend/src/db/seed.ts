@@ -12,34 +12,36 @@ if (!connectionString) {
 const client = postgres(connectionString);
 const db = drizzle(client);
 
+// Amounts in micro-units (10,000ths of a dollar): $50,000 = 500000000
+// Rates in basis points: 5.5% = 550 bps
 const sampleLoans = [
   {
-    principalAmount: '50000.0000',
-    interestRate: '0.055000',
+    principalAmountMicros: 500000000,  // $50,000
+    interestRateBps: 550,              // 5.50%
     termMonths: 60,
     status: 'ACTIVE' as const,
   },
   {
-    principalAmount: '25000.0000',
-    interestRate: '0.045000',
+    principalAmountMicros: 250000000,  // $25,000
+    interestRateBps: 450,              // 4.50%
     termMonths: 36,
     status: 'ACTIVE' as const,
   },
   {
-    principalAmount: '100000.0000',
-    interestRate: '0.065000',
+    principalAmountMicros: 1000000000, // $100,000
+    interestRateBps: 650,              // 6.50%
     termMonths: 120,
     status: 'DRAFT' as const,
   },
   {
-    principalAmount: '15000.0000',
-    interestRate: '0.039900',
+    principalAmountMicros: 150000000,  // $15,000
+    interestRateBps: 399,              // 3.99%
     termMonths: 24,
     status: 'CLOSED' as const,
   },
   {
-    principalAmount: '75000.0000',
-    interestRate: '0.052500',
+    principalAmountMicros: 750000000,  // $75,000
+    interestRateBps: 525,              // 5.25%
     termMonths: 84,
     status: 'ACTIVE' as const,
   },

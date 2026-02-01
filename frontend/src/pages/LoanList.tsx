@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
-import { formatCurrency, formatPercent } from '../utils/format';
+import { formatAmount, formatRate } from '../utils/format';
 
 export default function LoanList() {
   const { data: loans, isLoading, error } = useQuery({
@@ -71,10 +71,10 @@ export default function LoanList() {
               {loans?.map((loan) => (
                 <tr key={loan.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {formatCurrency(loan.principalAmount)}
+                    {formatAmount(loan.principalAmountMicros)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPercent(loan.interestRate)}
+                    {formatRate(loan.interestRateBps)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {loan.termMonths} months

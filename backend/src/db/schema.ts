@@ -1,9 +1,18 @@
-import { pgTable, uuid, decimal, integer, timestamp, text } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, bigint, integer, timestamp, text } from 'drizzle-orm/pg-core';
 
+/**
+ * Loans table
+ *
+ * Monetary values are stored as integers to avoid floating-point precision issues:
+ * - principalAmountMicros: Amount in micro-units (10,000ths of a dollar)
+ *   e.g., $50,000.1234 is stored as 500001234
+ * - interestRateBps: Interest rate in basis points (1 bp = 0.01%)
+ *   e.g., 5.50% is stored as 550
+ */
 export const loans = pgTable('loans', {
   id: uuid('id').defaultRandom().primaryKey(),
-  principalAmount: decimal('principal_amount', { precision: 19, scale: 4 }).notNull(),
-  interestRate: decimal('interest_rate', { precision: 7, scale: 6 }).notNull(),
+  principalAmountMicros: bigint('principal_amount_micros', { mode: 'number' }).notNull(),
+  interestRateBps: integer('interest_rate_bps').notNull(),
   termMonths: integer('term_months').notNull(),
   status: text('status', { enum: ['DRAFT', 'ACTIVE', 'CLOSED', 'ARCHIVED'] }).default('DRAFT').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

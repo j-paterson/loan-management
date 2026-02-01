@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
+import { parseAmount, parseRate, MICROS_PER_DOLLAR } from '../lib/money';
 import type { CreateLoanInput } from '../types/loan';
 
 interface FormData {
-  principalAmount: string;
-  interestRate: string;
+  principalAmount: string;  // User-friendly decimal input (e.g., "50000")
+  interestRate: string;     // User-friendly percentage input (e.g., "5.5")
   termMonths: string;
   status: 'DRAFT' | 'ACTIVE';
 }
@@ -39,12 +40,14 @@ export default function LoanForm() {
     enabled: isEditing,
   });
 
-  // Populate form when editing
+  // Populate form when editing - convert from integers to display values
   useEffect(() => {
     if (existingLoan) {
       setForm({
-        principalAmount: existingLoan.principalAmount,
-        interestRate: (parseFloat(existingLoan.interestRate) * 100).toString(),
+        // Convert micro-units to dollars for display
+        principalAmount: (existingLoan.principalAmountMicros / MICROS_PER_DOLLAR).toString(),
+        // Convert basis points to percentage for display
+        interestRate: (existingLoan.interestRateBps / 100).toString(),
         termMonths: existingLoan.termMonths.toString(),
         status: existingLoan.status === 'DRAFT' || existingLoan.status === 'ACTIVE'
           ? existingLoan.status
@@ -104,9 +107,10 @@ export default function LoanForm() {
 
     if (!validate()) return;
 
+    // Convert user-friendly values to integers for the API
     const data: CreateLoanInput = {
-      principalAmount: parseFloat(form.principalAmount),
-      interestRate: parseFloat(form.interestRate) / 100, // Convert percentage to decimal
+      principalAmountMicros: parseAmount(form.principalAmount),
+      interestRateBps: parseRate(form.interestRate),
       termMonths: parseInt(form.termMonths),
       status: form.status,
     };

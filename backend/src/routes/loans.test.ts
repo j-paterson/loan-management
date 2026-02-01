@@ -19,8 +19,8 @@ vi.mock('../db/index.js', () => {
         values: vi.fn(() => ({
           returning: vi.fn(() => Promise.resolve([{
             id: 'test-uuid-123',
-            principalAmount: '50000.0000',
-            interestRate: '0.055000',
+            principalAmountMicros: 500000000, // $50,000
+            interestRateBps: 550,             // 5.50%
             termMonths: 60,
             status: 'DRAFT',
             createdAt: new Date(),
@@ -34,8 +34,8 @@ vi.mock('../db/index.js', () => {
           where: vi.fn(() => ({
             returning: vi.fn(() => Promise.resolve([{
               id: 'test-uuid-123',
-              principalAmount: '75000.0000',
-              interestRate: '0.055000',
+              principalAmountMicros: 750000000, // $75,000
+              interestRateBps: 550,
               termMonths: 60,
               status: 'ACTIVE',
               createdAt: new Date(),
@@ -62,15 +62,15 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.055,
+          principalAmountMicros: 500000000, // $50,000
+          interestRateBps: 550,             // 5.50%
           termMonths: 60,
         });
 
       expect(response.status).toBe(201);
       expect(response.body.data).toBeDefined();
       expect(response.body.data.id).toBeDefined();
-      expect(response.body.data.principalAmount).toBe('50000.0000');
+      expect(response.body.data.principalAmountMicros).toBe(500000000);
       expect(response.body.data.status).toBe('DRAFT');
     });
 
@@ -78,8 +78,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.055,
+          principalAmountMicros: 500000000,
+          interestRateBps: 550,
           termMonths: 60,
           status: 'ACTIVE',
         });
@@ -92,8 +92,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: -1000,
-          interestRate: 0.05,
+          principalAmountMicros: -10000000,
+          interestRateBps: 500,
           termMonths: 12,
         });
 
@@ -105,8 +105,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 100_000_000,
-          interestRate: 0.05,
+          principalAmountMicros: 1000000000000, // $100,000,000 (over $10M limit)
+          interestRateBps: 500,
           termMonths: 12,
         });
 
@@ -114,13 +114,25 @@ describe('Loans API', () => {
       expect(response.body.error.message).toBe('Validation failed');
     });
 
+    it('rejects non-integer principal amount', async () => {
+      const response = await request(app)
+        .post('/loans')
+        .send({
+          principalAmountMicros: 500000000.5,
+          interestRateBps: 500,
+          termMonths: 12,
+        });
+
+      expect(response.status).toBe(400);
+    });
+
     // REQUIREMENT: Validate interest rates
     it('rejects negative interest rate', async () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: -0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: -50,
           termMonths: 12,
         });
 
@@ -131,8 +143,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 1.5, // 150%
+          principalAmountMicros: 500000000,
+          interestRateBps: 15000, // 150%
           termMonths: 12,
         });
 
@@ -143,12 +155,24 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0,
+          principalAmountMicros: 500000000,
+          interestRateBps: 0,
           termMonths: 12,
         });
 
       expect(response.status).toBe(201);
+    });
+
+    it('rejects non-integer interest rate', async () => {
+      const response = await request(app)
+        .post('/loans')
+        .send({
+          principalAmountMicros: 500000000,
+          interestRateBps: 550.5,
+          termMonths: 12,
+        });
+
+      expect(response.status).toBe(400);
     });
 
     // REQUIREMENT: Validate required fields
@@ -156,7 +180,7 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          interestRate: 0.05,
+          interestRateBps: 500,
           termMonths: 12,
         });
 
@@ -167,7 +191,7 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
+          principalAmountMicros: 500000000,
           termMonths: 12,
         });
 
@@ -178,8 +202,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: 500,
         });
 
       expect(response.status).toBe(400);
@@ -190,8 +214,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: 500,
           termMonths: 0,
         });
 
@@ -202,8 +226,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: 500,
           termMonths: 601,
         });
 
@@ -214,8 +238,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: 500,
           termMonths: 12.5,
         });
 
@@ -236,8 +260,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 'not a number',
-          interestRate: 'also not',
+          principalAmountMicros: 'not a number',
+          interestRateBps: 'also not',
           termMonths: 'nope',
         });
 
@@ -292,7 +316,7 @@ describe('Loans API', () => {
     it('returns 404 for non-existent loan', async () => {
       const response = await request(app)
         .patch('/loans/non-existent-id')
-        .send({ principalAmount: 75000 });
+        .send({ principalAmountMicros: 750000000 });
 
       expect(response.status).toBe(404);
     });
@@ -300,7 +324,7 @@ describe('Loans API', () => {
     it('validates update data', async () => {
       const response = await request(app)
         .patch('/loans/test-uuid-123')
-        .send({ principalAmount: -1000 });
+        .send({ principalAmountMicros: -10000000 });
 
       expect(response.status).toBe(400);
     });
@@ -334,8 +358,8 @@ describe('Loans API', () => {
       const response = await request(app)
         .post('/loans')
         .send({
-          principalAmount: 50000,
-          interestRate: 0.05,
+          principalAmountMicros: 500000000,
+          interestRateBps: 500,
           termMonths: 12,
         });
 
@@ -385,7 +409,7 @@ describe('Loans API', () => {
     it('includes validation details on error', async () => {
       const response = await request(app)
         .post('/loans')
-        .send({ principalAmount: -1 });
+        .send({ principalAmountMicros: -1 });
 
       expect(response.body.error).toHaveProperty('details');
     });

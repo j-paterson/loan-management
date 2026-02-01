@@ -275,8 +275,8 @@ describe('LoanForm', () => {
       await waitFor(() => {
         expect(loansApi.create).toHaveBeenCalled();
         const callArg = vi.mocked(loansApi.create).mock.calls[0][0];
-        expect(callArg.principalAmount).toBe(50000);
-        expect(callArg.interestRate).toBeCloseTo(0.055); // Converted from percentage
+        expect(callArg.principalAmountMicros).toBe(500000000); // $50,000 in micro-units
+        expect(callArg.interestRateBps).toBe(550); // 5.5% in basis points
         expect(callArg.termMonths).toBe(60);
         expect(callArg.status).toBe('DRAFT');
       });

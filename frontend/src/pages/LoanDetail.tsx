@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
-import { formatCurrency, formatPercent } from '../utils/format';
+import { formatAmount, formatRate } from '../utils/format';
 
 export default function LoanDetail() {
   const { id } = useParams<{ id: string }>();
@@ -78,14 +78,14 @@ export default function LoanDetail() {
             <div>
               <dt className="text-sm font-medium text-gray-500">Principal Amount</dt>
               <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                {formatCurrency(loan.principalAmount)}
+                {formatAmount(loan.principalAmountMicros)}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Interest Rate (APR)</dt>
               <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                {formatPercent(loan.interestRate)}
+                {formatRate(loan.interestRateBps)}
               </dd>
             </div>
 
