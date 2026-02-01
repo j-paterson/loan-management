@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: loan-management-db
+    container_name: loan-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -10,6 +10,43 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: loan-api
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/loan_management
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/src
+          target: /app/src
+
+  frontend:
+    build: ./frontend
+    container_name: loan-ui
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3001
+    depends_on:
+      - backend
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
 
 volumes:
   postgres_data:

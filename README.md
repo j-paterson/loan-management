@@ -4,9 +4,21 @@ A full-stack loan management application built with React, TypeScript, Express, 
 
 ## Quick Start
 
+### Option 1: Docker Compose (Recommended)
+
+Run the entire stack with one command:
+
+```bash
+docker compose up --build -d
+docker exec loan-api npm run db:push
+docker exec loan-api npm run db:seed
+```
+
+### Option 2: Local Development
+
 ```bash
 # Start PostgreSQL
-docker compose up -d
+docker compose up postgres -d
 
 # Backend
 cd backend
