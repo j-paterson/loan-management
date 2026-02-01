@@ -65,7 +65,7 @@ const updateLoanSchema = z.object({
   borrowerId: z.string().uuid().optional(),
 });
 
-// GET /loans - List all loans
+// GET /loans - List all loans with borrower data
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db
@@ -74,10 +74,19 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       .where(isNull(loans.deletedAt))
       .orderBy(loans.createdAt);
 
-    // Add borrower: null for each loan (fetched on detail view)
+    // Get unique borrower IDs and fetch all borrowers in one query
+    const borrowerIds = [...new Set(result.map(l => l.borrowerId))];
+    const borrowerList = borrowerIds.length > 0
+      ? await db.select().from(borrowers).where(isNull(borrowers.deletedAt))
+      : [];
+
+    // Create borrower lookup map
+    const borrowerMap = new Map(borrowerList.map(b => [b.id, b]));
+
+    // Attach borrower to each loan
     const data = result.map(loan => ({
       ...loan,
-      borrower: null,
+      borrower: borrowerMap.get(loan.borrowerId) ?? null,
     }));
 
     res.json({ data });
