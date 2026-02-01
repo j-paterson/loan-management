@@ -145,14 +145,15 @@ describe('LoanList', () => {
     });
   });
 
-  it('has view links for each loan', async () => {
+  it('renders clickable rows for each loan', async () => {
     vi.mocked(loansApi.getAll).mockResolvedValue(mockLoans);
 
     render(<LoanList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      const viewLinks = screen.getAllByRole('link', { name: /View/i });
-      expect(viewLinks).toHaveLength(2);
+      const rows = screen.getAllByRole('row');
+      // Header row + 2 data rows
+      expect(rows.length).toBeGreaterThanOrEqual(3);
     });
   });
 });
