@@ -1,33 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
-import type { Loan } from '../types/loan';
-
-function StatusBadge({ status }: { status: Loan['status'] }) {
-  const colors = {
-    DRAFT: 'bg-gray-100 text-gray-800',
-    ACTIVE: 'bg-green-100 text-green-800',
-    CLOSED: 'bg-blue-100 text-blue-800',
-    ARCHIVED: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function formatCurrency(amount: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(parseFloat(amount));
-}
-
-function formatPercent(rate: string): string {
-  return `${(parseFloat(rate) * 100).toFixed(2)}%`;
-}
+import { StatusBadge } from '../components/StatusBadge';
+import { formatCurrency, formatPercent } from '../utils/format';
 
 export default function LoanList() {
   const { data: loans, isLoading, error } = useQuery({
