@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoanForm from './LoanForm';
 import { mockLoan } from '../test/mocks';
 
-// Mock the API module
+// Mock the API modules
 vi.mock('../api/loans', () => ({
   loansApi: {
     getById: vi.fn(),
@@ -15,7 +15,19 @@ vi.mock('../api/loans', () => ({
   },
 }));
 
+vi.mock('../api/borrowers', () => ({
+  borrowersApi: {
+    getAll: vi.fn(),
+  },
+}));
+
 import { loansApi } from '../api/loans';
+import { borrowersApi } from '../api/borrowers';
+
+const mockBorrowers = [
+  { id: 'borrower-1', name: 'John Doe', email: 'john@example.com', phone: '555-1234', createdAt: '2024-01-01', updatedAt: '2024-01-01', deletedAt: null },
+  { id: 'borrower-2', name: 'Jane Smith', email: 'jane@example.com', phone: '555-5678', createdAt: '2024-01-01', updatedAt: '2024-01-01', deletedAt: null },
+];
 
 const renderCreateForm = () => {
   const queryClient = new QueryClient({
@@ -67,6 +79,7 @@ const renderEditForm = () => {
 describe('LoanForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(borrowersApi.getAll).mockResolvedValue(mockBorrowers);
   });
 
   // ===========================================
@@ -258,7 +271,7 @@ describe('LoanForm', () => {
   // REQUIREMENT: Form submission
   // ===========================================
   describe('Form Submission', () => {
-    it('submits valid form data', async () => {
+    it('submits valid form data with borrower', async () => {
       vi.mocked(loansApi.create).mockResolvedValue({
         ...mockLoan,
         id: 'new-id',
@@ -267,9 +280,18 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
+      // Wait for borrowers to load
+      await waitFor(() => {
+        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+      });
+
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
+
+      // Select a borrower
+      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
+
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
       await waitFor(() => {
@@ -279,6 +301,7 @@ describe('LoanForm', () => {
         expect(callArg.interestRateBps).toBe(550); // 5.5% in basis points
         expect(callArg.termMonths).toBe(60);
         expect(callArg.status).toBe('DRAFT');
+        expect(callArg.borrowerId).toBe('borrower-1');
       });
     });
 
@@ -290,9 +313,15 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
+      // Wait for borrowers to load
+      await waitFor(() => {
+        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+      });
+
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
+      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
       await waitFor(() => {
@@ -306,9 +335,15 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
+      // Wait for borrowers to load
+      await waitFor(() => {
+        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+      });
+
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
+      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
       await waitFor(() => {

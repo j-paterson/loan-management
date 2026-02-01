@@ -1,3 +1,5 @@
+import type { Borrower } from './borrower';
+
 /**
  * Loan types
  *
@@ -8,6 +10,8 @@
 
 export interface Loan {
   id: string;
+  borrowerId: string;
+  borrower: Borrower | null;
   principalAmountMicros: number;
   interestRateBps: number;
   termMonths: number;
@@ -22,6 +26,12 @@ export interface CreateLoanInput {
   interestRateBps: number;
   termMonths: number;
   status?: 'DRAFT' | 'ACTIVE';
+  borrowerId?: string;
+  newBorrower?: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
 }
 
 export interface UpdateLoanInput extends Partial<CreateLoanInput> {}

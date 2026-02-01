@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { loans } from './schema.js';
+import { loans, borrowers } from './schema.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -11,6 +11,14 @@ if (!connectionString) {
 
 const client = postgres(connectionString);
 const db = drizzle(client);
+
+const sampleBorrowers = [
+  { name: 'Alice Johnson', email: 'alice.johnson@email.com', phone: '555-0101' },
+  { name: 'Bob Smith', email: 'bob.smith@email.com', phone: '555-0102' },
+  { name: 'Carol Williams', email: 'carol.williams@email.com', phone: '555-0103' },
+  { name: 'David Brown', email: 'david.brown@email.com', phone: '555-0104' },
+  { name: 'Eva Martinez', email: 'eva.martinez@email.com', phone: '555-0105' },
+];
 
 // Amounts in micro-units (10,000ths of a dollar): $50,000 = 500000000
 // Rates in basis points: 5.5% = 550 bps
@@ -50,9 +58,19 @@ const sampleLoans = [
 async function main() {
   console.log('Seeding database...');
 
-  await db.insert(loans).values(sampleLoans);
+  // Insert borrowers first
+  const insertedBorrowers = await db.insert(borrowers).values(sampleBorrowers).returning();
+  console.log(`Inserted ${insertedBorrowers.length} sample borrowers`);
 
+  // Insert loans with borrower assignments
+  const loansWithBorrowers = sampleLoans.map((loan, index) => ({
+    ...loan,
+    borrowerId: insertedBorrowers[index % insertedBorrowers.length].id,
+  }));
+
+  await db.insert(loans).values(loansWithBorrowers);
   console.log(`Inserted ${sampleLoans.length} sample loans`);
+
   await client.end();
   process.exit(0);
 }
