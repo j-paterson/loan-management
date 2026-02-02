@@ -8,6 +8,24 @@ import type { Borrower } from './borrower';
  * - interestRateBps: Interest rate in basis points (1 bp = 0.01%)
  */
 
+export type LoanStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'INFO_REQUESTED'
+  | 'APPROVED'
+  | 'DENIED'
+  | 'WITHDRAWN'
+  | 'EXPIRED'
+  | 'ACTIVE'
+  | 'DELINQUENT'
+  | 'DEFAULT'
+  | 'CHARGED_OFF'
+  | 'PAID_OFF'
+  | 'REFINANCED';
+
+export type EventType = 'LOAN_CREATED' | 'LOAN_EDITED' | 'STATUS_CHANGE' | 'PAYMENT_RECEIVED';
+
 export interface Loan {
   id: string;
   borrowerId: string;
@@ -15,18 +33,37 @@ export interface Loan {
   principalAmountMicros: number;
   interestRateBps: number;
   termMonths: number;
-  status: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+  status: LoanStatus;
   remainingBalanceMicros: number;
+  statusChangedAt?: string;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  disbursedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+}
+
+export interface LoanEvent {
+  id: string;
+  loanId: string;
+  eventType: EventType;
+  occurredAt: string;
+  actorId: string | null;
+  fromStatus: LoanStatus | null;
+  toStatus: LoanStatus | null;
+  changes: Record<string, { from: unknown; to: unknown }> | null;
+  paymentId: string | null;
+  paymentAmountMicros: number | null;
+  description: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface CreateLoanInput {
   principalAmountMicros: number;
   interestRateBps: number;
   termMonths: number;
-  status?: 'DRAFT' | 'ACTIVE';
+  status?: LoanStatus;
   borrowerId?: string;
   newBorrower?: {
     name: string;

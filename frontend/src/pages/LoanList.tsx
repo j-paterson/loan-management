@@ -4,8 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAmount, formatRate } from '../utils/format';
-import type { Loan } from '../types/loan';
-
 type SortField = 'borrower' | 'principal' | 'rate' | 'term' | 'status' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 

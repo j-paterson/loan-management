@@ -31,6 +31,7 @@ export const mockLoans: Loan[] = [
     interestRateBps: 550,              // 5.50%
     termMonths: 60,
     status: 'ACTIVE',
+    remainingBalanceMicros: 350000000, // $35,000
     createdAt: '2024-01-15T10:00:00Z',
     updatedAt: '2024-01-15T10:00:00Z',
     deletedAt: null,
@@ -43,6 +44,7 @@ export const mockLoans: Loan[] = [
     interestRateBps: 450,              // 4.50%
     termMonths: 36,
     status: 'DRAFT',
+    remainingBalanceMicros: 250000000, // $25,000 (no payments yet)
     createdAt: '2024-01-16T10:00:00Z',
     updatedAt: '2024-01-16T10:00:00Z',
     deletedAt: null,
