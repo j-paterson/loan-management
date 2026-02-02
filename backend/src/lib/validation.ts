@@ -30,6 +30,12 @@ export const NAME_MAX_LENGTH = 255;
 export const EMAIL_MAX_LENGTH = 255;
 export const PHONE_MAX_LENGTH = 50;
 
+// Credit profile limits
+export const CREDIT_SCORE_MIN = 300;
+export const CREDIT_SCORE_MAX = 850;
+export const ANNUAL_INCOME_MAX_DOLLARS = 100_000_000; // $100M cap
+export const MONTHLY_DEBT_MAX_DOLLARS = 10_000_000;   // $10M cap
+
 // Loan statuses - re-export from schema for consistency
 // Note: The canonical definition is in db/schema.ts
 export { LOAN_STATUSES, type LoanStatus } from '../db/schema.js';

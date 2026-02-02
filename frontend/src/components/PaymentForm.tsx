@@ -38,6 +38,7 @@ export function PaymentForm({ loanId, onCancel, onSuccess }: PaymentFormProps) {
       queryClient.invalidateQueries({ queryKey: ['loans', loanId] });
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['payments', loanId] });
+      queryClient.invalidateQueries({ queryKey: ['events', loanId] });
       onSuccess();
     },
   });

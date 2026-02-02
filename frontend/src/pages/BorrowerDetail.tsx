@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
 import { loansApi } from '../api/loans';
-import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink, StatusBadge, Breadcrumbs } from '../components';
+import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink, StatusBadge, Breadcrumbs, ConfirmModal } from '../components';
 import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
 
@@ -11,6 +11,7 @@ export default function BorrowerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { data: borrower, isLoading, error } = useQuery({
     queryKey: ['borrowers', id],
@@ -35,11 +36,21 @@ export default function BorrowerDetail() {
     },
   });
 
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this borrower?')) {
-      deleteMutation.mutate();
-    }
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
   };
+
+  const handleDeleteConfirm = () => {
+    deleteMutation.mutate();
+  };
+
+  // Calculate DTI ratio if both income and debt are available
+  const dtiRatio = useMemo(() => {
+    if (!borrower?.annualIncomeMicros || !borrower?.monthlyDebtMicros) return null;
+    const monthlyIncome = borrower.annualIncomeMicros / 12;
+    if (monthlyIncome === 0) return null;
+    return (borrower.monthlyDebtMicros / monthlyIncome) * 100;
+  }, [borrower?.annualIncomeMicros, borrower?.monthlyDebtMicros]);
 
   if (isLoading) {
     return (
@@ -116,6 +127,57 @@ export default function BorrowerDetail() {
               </dd>
             </div>
 
+            {/* Credit Profile Section */}
+            {(borrower.creditScore !== null || borrower.annualIncomeMicros !== null || borrower.monthlyDebtMicros !== null) && (
+              <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Credit Profile</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {borrower.creditScore !== null && (
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Credit Score</dt>
+                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                        {borrower.creditScore}
+                        {borrower.creditScore >= 620 ? (
+                          <span className="ml-2 text-xs font-normal text-green-600">Meets threshold</span>
+                        ) : (
+                          <span className="ml-2 text-xs font-normal text-red-600">Below 620</span>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+                  {borrower.annualIncomeMicros !== null && (
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Annual Income</dt>
+                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                        {formatAmount(borrower.annualIncomeMicros)}
+                      </dd>
+                    </div>
+                  )}
+                  {borrower.monthlyDebtMicros !== null && (
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Monthly Debt</dt>
+                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                        {formatAmount(borrower.monthlyDebtMicros)}
+                      </dd>
+                    </div>
+                  )}
+                  {dtiRatio !== null && (
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">DTI Ratio</dt>
+                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                        {dtiRatio.toFixed(1)}%
+                        {dtiRatio <= 43 ? (
+                          <span className="ml-2 text-xs font-normal text-green-600">Meets threshold</span>
+                        ) : (
+                          <span className="ml-2 text-xs font-normal text-red-600">Above 43%</span>
+                        )}
+                      </dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
               <dd className="mt-1 text-lg text-gray-900">
@@ -191,7 +253,7 @@ export default function BorrowerDetail() {
             </ButtonLink>
             <Button
               variant="danger"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               isLoading={deleteMutation.isPending}
               loadingText="Deleting..."
             >
@@ -200,6 +262,19 @@ export default function BorrowerDetail() {
           </div>
         </CardFooter>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Borrower"
+        message="Are you sure you want to delete this borrower? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteModal(false)}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }

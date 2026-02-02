@@ -1,13 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and } from 'drizzle-orm';
+import { eq, isNull, and, sum } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { payments, loans } from '../db/schema.js';
+import { payments, loans, type LoanStatus } from '../db/schema.js';
 import {
   uuidParamSchema,
   createPaymentSchema,
   updatePaymentSchema,
 } from '../lib/schemas.js';
 import { recordPaymentReceived } from '../lib/events/index.js';
+
+// Statuses that allow payments to be recorded
+const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT'];
 
 interface LoanIdParams {
   loanId: string;
@@ -92,6 +95,43 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
+        },
+      });
+    }
+
+    // Fetch the loan to check status and calculate remaining balance
+    const [loan] = await db
+      .select()
+      .from(loans)
+      .where(eq(loans.id, req.params.loanId));
+
+    if (!loan) {
+      return res.status(404).json({ error: { message: 'Loan not found' } });
+    }
+
+    // Check loan status allows payments
+    if (!PAYMENT_ALLOWED_STATUSES.includes(loan.status as LoanStatus)) {
+      return res.status(400).json({
+        error: {
+          message: `Cannot record payment for loan in ${loan.status} status. Payments are only allowed for loans that are Active, Delinquent, or in Default.`,
+        },
+      });
+    }
+
+    // Calculate remaining balance
+    const [paymentSum] = await db
+      .select({ total: sum(payments.amountMicros) })
+      .from(payments)
+      .where(and(eq(payments.loanId, req.params.loanId), isNull(payments.deletedAt)));
+
+    const totalPaid = Number(paymentSum?.total || 0);
+    const remainingBalance = loan.principalAmountMicros - totalPaid;
+
+    // Check payment doesn't exceed remaining balance
+    if (parsed.data.amountMicros > remainingBalance) {
+      return res.status(400).json({
+        error: {
+          message: `Payment amount exceeds remaining balance. Maximum payment allowed: ${remainingBalance} micros.`,
         },
       });
     }

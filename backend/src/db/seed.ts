@@ -63,36 +63,42 @@ const sampleLoans: Array<{
   interestRateBps: number;
   termMonths: number;
   status: LoanStatus;
+  createdAt: Date;
 }> = [
   {
     principalAmountMicros: 500000000,  // $50,000
     interestRateBps: 550,              // 5.50%
     termMonths: 60,
     status: 'ACTIVE',
+    createdAt: new Date('2023-12-01'), // Before first payment on 2024-01-15
   },
   {
     principalAmountMicros: 250000000,  // $25,000
     interestRateBps: 450,              // 4.50%
     termMonths: 36,
     status: 'ACTIVE',
+    createdAt: new Date('2023-12-15'), // Before first payment on 2024-01-20
   },
   {
     principalAmountMicros: 1000000000, // $100,000
     interestRateBps: 650,              // 6.50%
     termMonths: 120,
     status: 'DRAFT',
+    createdAt: new Date('2024-01-01'), // No payments yet
   },
   {
     principalAmountMicros: 150000000,  // $15,000
     interestRateBps: 399,              // 3.99%
     termMonths: 24,
-    status: 'PAID_OFF', // Changed from CLOSED
+    status: 'PAID_OFF', // Will have full history in seed
+    createdAt: new Date('2023-05-01'), // Full lifecycle starts here
   },
   {
     principalAmountMicros: 750000000,  // $75,000
     interestRateBps: 525,              // 5.25%
     termMonths: 84,
     status: 'ACTIVE',
+    createdAt: new Date('2023-11-15'), // Before first payment on 2024-01-01
   },
 ];
 
@@ -121,6 +127,8 @@ async function main() {
 
   // Insert sample payments for ACTIVE loans
   // Amounts in micro-units: $5,000 = 50000000
+  const paidOffLoan = insertedLoans[3]; // The PAID_OFF loan ($15,000 principal)
+
   const samplePayments = [
     // Payments for first ACTIVE loan ($50,000 principal)
     { loanId: insertedLoans[0].id, amountMicros: 50000000, paidAt: new Date('2024-01-15') },  // $5,000
@@ -132,25 +140,78 @@ async function main() {
     // Payments for fifth ACTIVE loan ($75,000 principal)
     { loanId: insertedLoans[4].id, amountMicros: 100000000, paidAt: new Date('2024-01-01') }, // $10,000
     { loanId: insertedLoans[4].id, amountMicros: 100000000, paidAt: new Date('2024-02-01') }, // $10,000
+    // Payments for PAID_OFF loan ($15,000 principal) - full payoff over time
+    { loanId: paidOffLoan.id, amountMicros: 50000000, paidAt: new Date('2023-07-15') },  // $5,000
+    { loanId: paidOffLoan.id, amountMicros: 50000000, paidAt: new Date('2023-08-15') },  // $5,000
+    { loanId: paidOffLoan.id, amountMicros: 50000000, paidAt: new Date('2023-09-15') },  // $5,000 (fully paid)
   ];
 
   const insertedPayments = await db.insert(payments).values(samplePayments).returning();
   console.log(`Inserted ${insertedPayments.length} sample payments`);
 
-  // Create loan events
-  const loanEventEntries = insertedLoans.flatMap(loan => [
-    // Loan created event
-    {
-      loanId: loan.id,
-      eventType: 'LOAN_CREATED' as const,
-      occurredAt: loan.createdAt,
-      actorId: 'seed',
-      toStatus: loan.status as LoanStatus,
-      description: `Loan created with status ${loan.status}`,
-    },
-  ]);
+  // Create loan events - most loans just have a simple creation event
+  const simpleLoanEvents = insertedLoans
+    .filter(loan => loan.id !== paidOffLoan.id) // Exclude PAID_OFF loan, it gets full history
+    .flatMap(loan => [
+      {
+        loanId: loan.id,
+        eventType: 'LOAN_CREATED' as const,
+        occurredAt: loan.createdAt,
+        actorId: 'seed',
+        toStatus: loan.status as LoanStatus,
+        description: `Loan created with status ${loan.status}`,
+      },
+    ]);
 
-  // Add payment events
+  // Full lifecycle events for the PAID_OFF loan
+  const paidOffLoanEvents = [
+    {
+      loanId: paidOffLoan.id,
+      eventType: 'LOAN_CREATED' as const,
+      occurredAt: new Date('2023-05-01'),
+      actorId: 'seed',
+      toStatus: 'DRAFT' as LoanStatus,
+      description: 'Loan created with status DRAFT',
+    },
+    {
+      loanId: paidOffLoan.id,
+      eventType: 'STATUS_CHANGE' as const,
+      occurredAt: new Date('2023-05-02'),
+      actorId: 'seed',
+      fromStatus: 'DRAFT' as LoanStatus,
+      toStatus: 'SUBMITTED' as LoanStatus,
+      description: 'Status changed from Draft to Submitted',
+    },
+    {
+      loanId: paidOffLoan.id,
+      eventType: 'STATUS_CHANGE' as const,
+      occurredAt: new Date('2023-05-03'),
+      actorId: 'seed',
+      fromStatus: 'SUBMITTED' as LoanStatus,
+      toStatus: 'UNDER_REVIEW' as LoanStatus,
+      description: 'Status changed from Submitted to Under Review',
+    },
+    {
+      loanId: paidOffLoan.id,
+      eventType: 'STATUS_CHANGE' as const,
+      occurredAt: new Date('2023-05-10'),
+      actorId: 'seed',
+      fromStatus: 'UNDER_REVIEW' as LoanStatus,
+      toStatus: 'APPROVED' as LoanStatus,
+      description: 'Status changed from Under Review to Approved',
+    },
+    {
+      loanId: paidOffLoan.id,
+      eventType: 'STATUS_CHANGE' as const,
+      occurredAt: new Date('2023-06-01'),
+      actorId: 'seed',
+      fromStatus: 'APPROVED' as LoanStatus,
+      toStatus: 'ACTIVE' as LoanStatus,
+      description: 'Status changed from Approved to Active (funds disbursed)',
+    },
+  ];
+
+  // Add payment events for all payments
   const paymentEventEntries = insertedPayments.map(payment => ({
     loanId: payment.loanId,
     eventType: 'PAYMENT_RECEIVED' as const,
@@ -161,8 +222,26 @@ async function main() {
     description: `Payment of $${(payment.amountMicros / 10000).toLocaleString()} received`,
   }));
 
-  await db.insert(loanEvents).values([...loanEventEntries, ...paymentEventEntries]);
-  console.log(`Inserted ${loanEventEntries.length + paymentEventEntries.length} loan events`);
+  // Final status change for PAID_OFF loan
+  const paidOffFinalEvent = {
+    loanId: paidOffLoan.id,
+    eventType: 'STATUS_CHANGE' as const,
+    occurredAt: new Date('2023-09-16'), // Day after final payment
+    actorId: 'seed',
+    fromStatus: 'ACTIVE' as LoanStatus,
+    toStatus: 'PAID_OFF' as LoanStatus,
+    description: 'Status changed from Active to Paid Off (loan fully repaid)',
+  };
+
+  await db.insert(loanEvents).values([
+    ...simpleLoanEvents,
+    ...paidOffLoanEvents,
+    ...paymentEventEntries,
+    paidOffFinalEvent,
+  ]);
+
+  const totalEvents = simpleLoanEvents.length + paidOffLoanEvents.length + paymentEventEntries.length + 1;
+  console.log(`Inserted ${totalEvents} loan events`);
 
   await client.end();
   process.exit(0);

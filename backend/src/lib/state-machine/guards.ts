@@ -14,7 +14,7 @@ export interface GuardResult {
 export interface TransitionContext {
   loan: Loan;
   borrower: Borrower;
-  totalPaymentsMicros?: number;
+  remainingBalanceMicros: number;
 }
 
 /**
@@ -203,14 +203,11 @@ const guards: Record<string, GuardFn> = {
 
   /**
    * ACTIVE -> PAID_OFF
-   * Loan fully repaid
+   * Loan fully repaid - requires zero remaining balance
    */
-  'ACTIVE->PAID_OFF': ({ loan, totalPaymentsMicros }) => {
-    if (totalPaymentsMicros === undefined) {
-      return { allowed: true }; // Allow manual override
-    }
-    if (totalPaymentsMicros < loan.principalAmountMicros) {
-      return { allowed: false, reason: 'Loan balance has not been fully paid' };
+  'ACTIVE->PAID_OFF': ({ remainingBalanceMicros }) => {
+    if (remainingBalanceMicros > 0) {
+      return { allowed: false, reason: 'Cannot mark as paid off while there is a remaining balance' };
     }
     return { allowed: true };
   },

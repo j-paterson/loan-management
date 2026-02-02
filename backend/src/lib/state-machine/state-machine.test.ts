@@ -71,13 +71,13 @@ describe('State Machine Guards', () => {
     it('requires complete loan data', () => {
       const loan = createMockLoan();
       const borrower = createMockBorrower();
-      expect(checkTransitionGuard('DRAFT', 'SUBMITTED', { loan, borrower }).allowed).toBe(true);
+      expect(checkTransitionGuard('DRAFT', 'SUBMITTED', { loan, borrower, remainingBalanceMicros: 500000000 }).allowed).toBe(true);
     });
 
     it('rejects when principal is zero', () => {
       const loan = createMockLoan({ principalAmountMicros: 0 });
       const borrower = createMockBorrower();
-      const result = checkTransitionGuard('DRAFT', 'SUBMITTED', { loan, borrower });
+      const result = checkTransitionGuard('DRAFT', 'SUBMITTED', { loan, borrower, remainingBalanceMicros: 0 });
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('Principal');
     });
@@ -89,17 +89,17 @@ describe('State Machine Guards', () => {
 
       // Below minimum - rejected
       const lowCredit = createMockBorrower({ creditScore: 590 });
-      const lowResult = checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: lowCredit });
+      const lowResult = checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: lowCredit, remainingBalanceMicros: 500000000 });
       expect(lowResult.allowed).toBe(false);
       expect(lowResult.reason).toContain('590');
 
       // At minimum - allowed
       const minCredit = createMockBorrower({ creditScore: 620 });
-      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: minCredit }).allowed).toBe(true);
+      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: minCredit, remainingBalanceMicros: 500000000 }).allowed).toBe(true);
 
       // Missing credit score - rejected
       const noCredit = createMockBorrower({ creditScore: null });
-      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: noCredit }).allowed).toBe(false);
+      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower: noCredit, remainingBalanceMicros: 500000000 }).allowed).toBe(false);
     });
   });
 
@@ -115,7 +115,7 @@ describe('State Machine Guards', () => {
         annualIncomeMicros: 500000000, // $50,000/year
         monthlyDebtMicros: 30000000, // $3,000/month existing debt
       });
-      const result = checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower });
+      const result = checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower, remainingBalanceMicros: 1000000000 });
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('Debt-to-income');
     });
@@ -123,28 +123,26 @@ describe('State Machine Guards', () => {
     it('skips DTI check when income not available', () => {
       const loan = createMockLoan();
       const borrower = createMockBorrower({ creditScore: 720, annualIncomeMicros: null });
-      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower }).allowed).toBe(true);
+      expect(checkTransitionGuard('UNDER_REVIEW', 'APPROVED', { loan, borrower, remainingBalanceMicros: 500000000 }).allowed).toBe(true);
     });
   });
 
   describe('ACTIVE -> PAID_OFF', () => {
-    it('validates payment balance', () => {
+    it('validates remaining balance is zero', () => {
       const loan = createMockLoan({ principalAmountMicros: 500000000 });
       const borrower = createMockBorrower();
 
-      // Fully paid - allowed
+      // Fully paid (no remaining balance) - allowed
       expect(checkTransitionGuard('ACTIVE', 'PAID_OFF', {
-        loan, borrower, totalPaymentsMicros: 550000000
+        loan, borrower, remainingBalanceMicros: 0
       }).allowed).toBe(true);
 
       // Balance remaining - rejected
       const result = checkTransitionGuard('ACTIVE', 'PAID_OFF', {
-        loan, borrower, totalPaymentsMicros: 300000000
+        loan, borrower, remainingBalanceMicros: 200000000
       });
       expect(result.allowed).toBe(false);
-
-      // Manual override (no payment data) - allowed
-      expect(checkTransitionGuard('ACTIVE', 'PAID_OFF', { loan, borrower }).allowed).toBe(true);
+      expect(result.reason).toContain('remaining balance');
     });
   });
 });
