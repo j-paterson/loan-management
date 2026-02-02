@@ -2,32 +2,23 @@
 
 ## Overview
 
-A full-stack loan management system for tracking loans and borrowers. Built with React and TypeScript on the frontend, Express and Drizzle ORM on the backend, with PostgreSQL for persistence.
+A full-stack loan management system for tracking loans and borrowers. 
+
+Built with React and TypeScript on the frontend, an Express backend, and a PostgreSQL database.
 
 The application allows users to:
-- Create and manage borrowers with contact information
-- Create loans with inline borrower creation (atomic operation)
+- Create and manage loans and the borrowers linked to them
 - Track loan details: principal amount, interest rate, term, and status
 - View loan lists with borrower information and navigate to details
 
 ## How to Run Locally
 
-**Option 1: Docker Compose (one command)**
+**Docker Compose**
 ```bash
 docker compose up --build -d && docker exec loan-api npm run db:push && docker exec loan-api npm run db:seed
 ```
 
-**Option 2: Local development**
-```bash
-# Terminal 1: Start database and backend
-docker compose up postgres -d
-cd backend && cp .env.example .env && npm install && npm run db:push && npm run db:seed && npm run dev
-
-# Terminal 2: Start frontend
-cd frontend && npm install && npm run dev
-```
-
-Access the app at http://localhost:5173 (API at http://localhost:3001).
+Access the app at http://localhost:5173 (API at http://localhost:3001)
 
 ## Environment Variables
 
@@ -39,25 +30,6 @@ Access the app at http://localhost:5173 (API at http://localhost:3001).
 | `PORT` | API server port | `3001` |
 
 Copy `backend/.env.example` to `backend/.env` for local development.
-
-## Database Setup
-
-1. **Start PostgreSQL** (via Docker):
-   ```bash
-   docker compose up postgres -d
-   ```
-
-2. **Create tables**:
-   ```bash
-   cd backend && npm run db:push
-   ```
-
-3. **Seed sample data** (optional):
-   ```bash
-   npm run db:seed
-   ```
-
-This creates sample borrowers and loans for testing.
 
 ## Key Technical Decisions
 
@@ -82,10 +54,10 @@ This creates sample borrowers and loans for testing.
 
 ### API Design
 
-- RESTful endpoints with consistent response format: `{ data: ... }` or `{ error: { message, details } }`
+- Standard RESTful endpoints with consistent response format: `{ data: ... }` or `{ error: { message, details } }`
 - Validation errors return 400 with Zod error details
 - All list endpoints exclude soft-deleted records
-
+   
 ## Assumptions Made
 
 1. **Single currency (USD)** — All monetary amounts are in US dollars
@@ -96,14 +68,13 @@ This creates sample borrowers and loans for testing.
 
 ## What I'd Improve
 
-Given more time:
+Given more time I would implement:
 
 1. **Payment tracking** — Record payments, calculate remaining balance, generate amortization schedules
 2. **Activity log** — Audit trail for all loan/borrower changes
 3. **Authentication & authorization** — JWT auth with role-based access control
 4. **Pagination & filtering** — Handle large datasets with cursor pagination, filter by status/date/amount
-5. **E2E tests** — Playwright tests for critical user flows
-6. **Borrower management UI** — Dedicated pages for listing/editing borrowers independently
+5. **Borrower management UI** — Dedicated pages for borrowers to pay/access their loan information
 
 ## Testing
 
@@ -119,10 +90,10 @@ Tests cover API endpoints, validation rules, component rendering, form interacti
 
 ## AI Tool Usage
 
-Built with Claude Code (Anthropic). AI assisted with:
+Built with extensive use of Claude Code for:
 - Project scaffolding and configuration
 - Writing comprehensive test suites
 - Debugging and code review
 - Documentation
 
-All generated code was reviewed and understood before committing.
+I initially laid out the architecture, broke down the project down into pieces and then wrote implementation directives for Claude. 
