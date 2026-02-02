@@ -57,6 +57,7 @@ export const createLoanSchema = baseLoanSchema.extend({
 
 export const updateLoanSchema = baseLoanSchema.partial().extend({
   borrowerId: z.string().uuid().optional(),
+  newBorrower: createBorrowerSchema.optional(),
 });
 
 // Payment schemas

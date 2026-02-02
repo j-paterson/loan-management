@@ -212,6 +212,7 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
     }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
+    let borrower = null;
 
     if (parsed.data.principalAmountMicros !== undefined) {
       updates.principalAmountMicros = parsed.data.principalAmountMicros;
@@ -225,8 +226,22 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
     if (parsed.data.status !== undefined) {
       updates.status = parsed.data.status;
     }
-    if (parsed.data.borrowerId !== undefined) {
-      // Verify borrower exists
+
+    // Handle borrower assignment - either new borrower creation or existing borrower selection
+    if (parsed.data.newBorrower) {
+      // Create new borrower inline
+      const borrowerResult = await db
+        .insert(borrowers)
+        .values({
+          name: parsed.data.newBorrower.name,
+          email: parsed.data.newBorrower.email,
+          phone: parsed.data.newBorrower.phone,
+        })
+        .returning();
+      borrower = borrowerResult[0];
+      updates.borrowerId = borrower.id;
+    } else if (parsed.data.borrowerId !== undefined) {
+      // Verify existing borrower exists
       const borrowerExists = await db
         .select()
         .from(borrowers)
@@ -243,9 +258,8 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       .where(eq(loans.id, req.params.id))
       .returning();
 
-    // Fetch borrower data if assigned
-    let borrower = null;
-    if (result[0].borrowerId) {
+    // Fetch borrower data if not already loaded from inline creation
+    if (!borrower && result[0].borrowerId) {
       const borrowerResult = await db
         .select()
         .from(borrowers)

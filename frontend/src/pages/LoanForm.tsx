@@ -119,10 +119,8 @@ export default function LoanForm() {
       newErrors.termMonths = `Term cannot exceed ${TERM_MAX_MONTHS} months`;
     }
 
-    if (!isEditing) {
-      if (!form.borrowerId && !newBorrower) {
-        newErrors.borrower = 'Please select a borrower or create a new one';
-      }
+    if (!form.borrowerId && !newBorrower) {
+      newErrors.borrower = 'Please select a borrower or create a new one';
     }
 
     setErrors(newErrors);
@@ -134,13 +132,24 @@ export default function LoanForm() {
     if (!validate()) return;
 
     if (isEditing) {
-      updateMutation.mutate({
+      const updateData: UpdateLoanInput = {
         principalAmountMicros: parseAmount(form.principalAmount),
         interestRateBps: parseRate(form.interestRate),
         termMonths: parseInt(form.termMonths),
         status: form.status,
-        borrowerId: form.borrowerId,
-      });
+      };
+
+      if (newBorrower) {
+        updateData.newBorrower = {
+          name: newBorrower.name,
+          email: newBorrower.email,
+          phone: newBorrower.phone || undefined,
+        };
+      } else {
+        updateData.borrowerId = form.borrowerId;
+      }
+
+      updateMutation.mutate(updateData);
     } else {
       const data: CreateLoanInput = {
         principalAmountMicros: parseAmount(form.principalAmount),
@@ -265,7 +274,7 @@ export default function LoanForm() {
                 {/* Borrower Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Borrower {!isEditing && <span className="text-red-500">*</span>}
+                    Borrower <span className="text-red-500">*</span>
                   </label>
                   <BorrowerSearch
                     borrowers={borrowers}
@@ -285,7 +294,6 @@ export default function LoanForm() {
                       }
                     }}
                     error={errors.borrower}
-                    disabled={isEditing}
                   />
                   {newBorrower && (
                     <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
