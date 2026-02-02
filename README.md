@@ -56,17 +56,61 @@ Loans progress through a defined lifecycle with guard conditions enforcing busin
 
 ### Guard Conditions
 
-| Transition | Requirements |
-|------------|--------------|
-| DRAFT → SUBMITTED | Borrower assigned, principal > 0, term ≥ 1 month |
-| UNDER_REVIEW → APPROVED | Credit score ≥ 620, DTI ratio ≤ 43% |
+Every status transition is validated server-side. If conditions aren't met, the operation fails with a descriptive error.
+
+#### Origination Phase
+
+| Transition | Guard Conditions |
+|------------|------------------|
+| DRAFT → SUBMITTED | Borrower assigned, principal > 0, interest rate ≥ 0, term ≥ 1 month |
+| DRAFT → WITHDRAWN | Always allowed |
+| SUBMITTED → UNDER_REVIEW | Always allowed |
+| SUBMITTED → WITHDRAWN | Always allowed |
+| UNDER_REVIEW → APPROVED | Credit score ≥ 620, DTI ratio ≤ 43% (if income data available) |
+| UNDER_REVIEW → DENIED | Always allowed (manual decision) |
+| UNDER_REVIEW → INFO_REQUESTED | Always allowed |
+| INFO_REQUESTED → UNDER_REVIEW | Always allowed (borrower provided info) |
+| INFO_REQUESTED → WITHDRAWN | Always allowed |
+| APPROVED → ACTIVE | Always allowed (funds disbursed) |
+| APPROVED → EXPIRED | Always allowed (approval timeout) |
+| APPROVED → WITHDRAWN | Always allowed |
+
+#### Servicing Phase
+
+| Transition | Guard Conditions |
+|------------|------------------|
 | ACTIVE → PAID_OFF | Remaining balance = 0 |
+| ACTIVE → DELINQUENT | Always allowed (payment past due) |
+| ACTIVE → REFINANCED | Always allowed (replaced by new loan) |
+| DELINQUENT → ACTIVE | Always allowed (caught up on payments) |
+| DELINQUENT → DEFAULT | Always allowed (90+ days delinquent) |
+| DEFAULT → ACTIVE | Always allowed (full reinstatement) |
+| DEFAULT → CHARGED_OFF | Always allowed (written off as loss) |
+| CHARGED_OFF → PAID_OFF | Always allowed (recovery after charge-off) |
 
-**Payment validation:**
-- Payments only allowed when loan is ACTIVE, DELINQUENT, or DEFAULT
-- Payment amount cannot exceed remaining balance
+#### Terminal States (no outbound transitions)
+- DENIED, WITHDRAWN, EXPIRED, PAID_OFF, REFINANCED
 
-Guards are enforced server-side. If conditions aren't met, the operation fails with a descriptive error.
+#### Payment Validation
+
+Payments have their own guards, separate from status transitions:
+
+| Rule | Requirement |
+|------|-------------|
+| Status check | Loan must be ACTIVE, DELINQUENT, or DEFAULT |
+| Amount check | Payment cannot exceed remaining balance |
+
+#### DTI Calculation
+
+The debt-to-income ratio for approval is calculated as:
+
+```
+Monthly Payment = amortized payment for (principal, rate, term)
+Total Monthly Debt = borrower.monthlyDebt + Monthly Payment
+DTI = Total Monthly Debt / (borrower.annualIncome / 12)
+```
+
+If the borrower has no income data on file, the DTI check is skipped.
 
 ## Architecture
 
