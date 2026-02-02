@@ -30,6 +30,6 @@ export const NAME_MAX_LENGTH = 255;
 export const EMAIL_MAX_LENGTH = 255;
 export const PHONE_MAX_LENGTH = 50;
 
-// Loan statuses
-export const LOAN_STATUSES = ['DRAFT', 'ACTIVE'] as const;
-export type LoanStatus = (typeof LOAN_STATUSES)[number];
+// Loan statuses - re-export from schema for consistency
+// Note: The canonical definition is in db/schema.ts
+export { LOAN_STATUSES, type LoanStatus } from '../db/schema.js';
