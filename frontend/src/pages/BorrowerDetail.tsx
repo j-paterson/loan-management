@@ -100,14 +100,14 @@ export default function BorrowerDetail() {
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Name</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+              <dd className="mt-1 text-xl font-semibold text-gray-900">
                 {borrower.name}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Email</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 <a href={`mailto:${borrower.email}`} className="text-blue-600 hover:underline">
                   {borrower.email}
                 </a>
@@ -116,7 +116,7 @@ export default function BorrowerDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Phone</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {borrower.phone ? (
                   <a href={`tel:${borrower.phone}`} className="text-blue-600 hover:underline">
                     {borrower.phone}
@@ -135,7 +135,7 @@ export default function BorrowerDetail() {
                   {borrower.creditScore !== null && (
                     <div>
                       <dt className="text-xs font-medium text-gray-500">Credit Score</dt>
-                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                      <dd className="mt-1 text-base font-semibold text-gray-900">
                         {borrower.creditScore}
                         {borrower.creditScore >= 620 ? (
                           <span className="ml-2 text-xs font-normal text-green-600">Meets threshold</span>
@@ -148,7 +148,7 @@ export default function BorrowerDetail() {
                   {borrower.annualIncomeMicros !== null && (
                     <div>
                       <dt className="text-xs font-medium text-gray-500">Annual Income</dt>
-                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                      <dd className="mt-1 text-base font-semibold text-gray-900">
                         {formatAmount(borrower.annualIncomeMicros)}
                       </dd>
                     </div>
@@ -156,7 +156,7 @@ export default function BorrowerDetail() {
                   {borrower.monthlyDebtMicros !== null && (
                     <div>
                       <dt className="text-xs font-medium text-gray-500">Monthly Debt</dt>
-                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                      <dd className="mt-1 text-base font-semibold text-gray-900">
                         {formatAmount(borrower.monthlyDebtMicros)}
                       </dd>
                     </div>
@@ -164,7 +164,7 @@ export default function BorrowerDetail() {
                   {dtiRatio !== null && (
                     <div>
                       <dt className="text-xs font-medium text-gray-500">DTI Ratio</dt>
-                      <dd className="mt-1 text-lg font-semibold text-gray-900">
+                      <dd className="mt-1 text-base font-semibold text-gray-900">
                         {dtiRatio.toFixed(1)}%
                         {dtiRatio <= 43 ? (
                           <span className="ml-2 text-xs font-normal text-green-600">Meets threshold</span>
@@ -180,14 +180,14 @@ export default function BorrowerDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {new Date(borrower.createdAt).toLocaleString()}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {new Date(borrower.updatedAt).toLocaleString()}
               </dd>
             </div>

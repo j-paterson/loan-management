@@ -223,21 +223,21 @@ export default function LoanDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Principal Amount</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+              <dd className="mt-1 text-xl font-semibold text-gray-900">
                 {formatAmount(loan.principalAmountMicros)}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Interest Rate (APR)</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+              <dd className="mt-1 text-xl font-semibold text-gray-900">
                 {formatRate(loan.interestRateBps)}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Term</dt>
-              <dd className="mt-1 text-lg text-gray-900">{loan.termMonths} months</dd>
+              <dd className="mt-1 text-base text-gray-900">{loan.termMonths} months</dd>
             </div>
 
             <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
@@ -287,7 +287,7 @@ export default function LoanDetail() {
 
             <div className="md:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Borrower</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {loan.borrower ? (
                   <Link
                     to={`/borrowers/${loan.borrowerId}`}
@@ -312,14 +312,14 @@ export default function LoanDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {new Date(loan.createdAt).toLocaleString()}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {new Date(loan.updatedAt).toLocaleString()}
               </dd>
             </div>
