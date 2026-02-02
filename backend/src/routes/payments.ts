@@ -10,7 +10,7 @@ import {
 import { recordPaymentReceived } from '../lib/events/index.js';
 
 // Statuses that allow payments to be recorded
-const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT'];
+const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT', 'CHARGED_OFF'];
 
 interface LoanIdParams {
   loanId: string;
