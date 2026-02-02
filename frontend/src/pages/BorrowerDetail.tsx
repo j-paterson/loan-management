@@ -180,14 +180,14 @@ export default function BorrowerDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-base text-gray-900">
+              <dd className="mt-1 text-sm text-gray-700">
                 {new Date(borrower.createdAt).toLocaleString()}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-base text-gray-900">
+              <dd className="mt-1 text-sm text-gray-700">
                 {new Date(borrower.updatedAt).toLocaleString()}
               </dd>
             </div>
