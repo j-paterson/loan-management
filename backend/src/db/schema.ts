@@ -1,8 +1,7 @@
 import { pgTable, uuid, bigint, integer, timestamp, text, jsonb } from 'drizzle-orm/pg-core';
 import { LOAN_STATUSES, EVENT_TYPES } from '@loan-management/shared';
-import type { LoanStatus, EventType } from '@loan-management/shared';
 
-// Re-export types for convenience
+// Re-export types and constants for convenience
 export type { LoanStatus, EventType } from '@loan-management/shared';
 export { LOAN_STATUSES, EVENT_TYPES } from '@loan-management/shared';
 

@@ -28,7 +28,7 @@ vi.mock('../db/index.js', () => ({
         returning: vi.fn(() => Promise.resolve([{ id: 'test-event-123' }])),
       })),
     })),
-    transaction: vi.fn(async (callback: (tx: any) => Promise<any>) => {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
       return callback({
         select: vi.fn(() => ({
           from: vi.fn(() => ({

@@ -29,7 +29,7 @@ vi.mock('../db/index.js', () => {
     db: {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          where: vi.fn((condition) => ({
+          where: vi.fn((_condition) => ({
             orderBy: vi.fn(() => Promise.resolve(mockBorrowers.filter(b => !b.deletedAt))),
           })),
         })),

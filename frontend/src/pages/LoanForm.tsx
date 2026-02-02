@@ -62,6 +62,8 @@ export default function LoanForm() {
     queryFn: borrowersApi.getAll,
   });
 
+  // Populate form when editing existing loan
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (existingLoan) {
       setForm({
@@ -72,6 +74,7 @@ export default function LoanForm() {
       });
     }
   }, [existingLoan]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const createMutation = useMutation({
     mutationFn: loansApi.create,

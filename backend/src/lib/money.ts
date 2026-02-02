@@ -10,7 +10,7 @@
  * Decimal conversion only happens at UI boundaries (input/display).
  */
 
-import { dinero, toSnapshot, add, subtract, multiply, type Dinero } from 'dinero.js';
+import { dinero, toSnapshot, add, subtract, type Dinero } from 'dinero.js';
 import { USD } from '@dinero.js/currencies';
 
 export const AMOUNT_SCALE = 4;

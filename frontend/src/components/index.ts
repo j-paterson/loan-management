@@ -1,4 +1,5 @@
-export { FormField, inputStyles } from './FormField';
+export { FormField } from './FormField';
+export { inputStyles } from './styles';
 export { Card, CardHeader, CardBody, CardFooter } from './Card';
 export { Button, ButtonLink } from './Button';
 export { StatusBadge } from './StatusBadge';

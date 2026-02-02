@@ -58,7 +58,7 @@ const guards: Record<string, GuardFn> = {
    * DRAFT -> SUBMITTED
    * Requires: Basic loan data complete
    */
-  'DRAFT->SUBMITTED': ({ loan, borrower }) => {
+  'DRAFT->SUBMITTED': ({ loan, borrower: _borrower }) => {
     if (!loan.borrowerId) {
       return { allowed: false, reason: 'Borrower is required' };
     }

@@ -47,6 +47,8 @@ export default function BorrowerForm() {
     enabled: isEditing,
   });
 
+  // Populate form when editing existing borrower
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (existingBorrower) {
       setForm({
@@ -63,6 +65,7 @@ export default function BorrowerForm() {
       });
     }
   }, [existingBorrower]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const createMutation = useMutation({
     mutationFn: borrowersApi.create,

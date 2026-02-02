@@ -15,7 +15,7 @@ import { recordLoanCreated, recordLoanEdited } from '../lib/events/index.js';
 
 // Mock the database module
 vi.mock('../db/index.js', () => {
-  const mockLoans: Record<string, any>[] = [];
+  const mockLoans: Record<string, unknown>[] = [];
 
   const createMockDb = () => ({
     select: vi.fn(() => ({
@@ -62,7 +62,7 @@ vi.mock('../db/index.js', () => {
   const mockDb = createMockDb();
 
   // Add transaction support - transaction callback receives same db interface
-  mockDb.transaction = vi.fn(async (callback: (tx: any) => Promise<any>) => {
+  mockDb.transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
     const txDb = createMockDb();
     return callback(txDb);
   });
