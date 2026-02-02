@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
-import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink } from '../components';
+import { loansApi } from '../api/loans';
+import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink, StatusBadge } from '../components';
+import { formatAmount, formatRate } from '../utils/format';
 
 export default function BorrowerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +16,15 @@ export default function BorrowerDetail() {
     queryFn: () => borrowersApi.getById(id!),
     enabled: !!id,
   });
+
+  const { data: allLoans = [] } = useQuery({
+    queryKey: ['loans'],
+    queryFn: loansApi.getAll,
+  });
+
+  const borrowerLoans = useMemo(() => {
+    return allLoans.filter(loan => loan.borrowerId === id);
+  }, [allLoans, id]);
 
   const deleteMutation = useMutation({
     mutationFn: () => borrowersApi.delete(id!),
@@ -116,6 +128,58 @@ export default function BorrowerDetail() {
               </dd>
             </div>
           </dl>
+
+          {/* Loans Section */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Loans</h2>
+
+            {borrowerLoans.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Principal
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rate
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Term
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {borrowerLoans.map((loan) => (
+                      <tr
+                        key={loan.id}
+                        onClick={() => navigate(`/loans/${loan.id}`)}
+                        className="hover:bg-gray-50 cursor-pointer"
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatAmount(loan.principalAmountMicros)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {formatRate(loan.interestRateBps)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {loan.termMonths} months
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <StatusBadge status={loan.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No loans for this borrower.</p>
+            )}
+          </div>
         </CardBody>
 
         <CardFooter>

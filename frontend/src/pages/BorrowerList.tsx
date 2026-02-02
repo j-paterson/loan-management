@@ -24,13 +24,20 @@ function SortableHeader({
   return (
     <th
       onClick={() => onSort(field)}
-      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+      className={`px-6 py-3 text-left text-xs uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none ${
+        isActive ? 'font-bold text-gray-900' : 'font-medium text-gray-500'
+      }`}
     >
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         {children}
-        <span className="text-gray-400">
-          {isActive ? (direction === 'asc' ? '▲' : '▼') : '▲▼'}
-        </span>
+        <div className="flex flex-col text-[10px] leading-none">
+          <span className={isActive && direction === 'asc' ? 'text-gray-900' : 'text-gray-300'}>
+            ▲
+          </span>
+          <span className={isActive && direction === 'desc' ? 'text-gray-900' : 'text-gray-300'}>
+            ▼
+          </span>
+        </div>
       </div>
     </th>
   );
