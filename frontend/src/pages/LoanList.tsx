@@ -1,15 +1,101 @@
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAmount, formatRate } from '../utils/format';
+import type { Loan } from '../types/loan';
+
+type SortField = 'borrower' | 'principal' | 'rate' | 'term' | 'status' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
+
+function SortableHeader({
+  field,
+  currentField,
+  direction,
+  onSort,
+  children,
+}: {
+  field: SortField;
+  currentField: SortField;
+  direction: SortDirection;
+  onSort: (field: SortField) => void;
+  children: React.ReactNode;
+}) {
+  const isActive = field === currentField;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <span className="text-gray-400">
+          {isActive ? (direction === 'asc' ? '▲' : '▼') : '▲▼'}
+        </span>
+      </div>
+    </th>
+  );
+}
 
 export default function LoanList() {
   const navigate = useNavigate();
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
   const { data: loans, isLoading, error } = useQuery({
     queryKey: ['loans'],
     queryFn: loansApi.getAll,
   });
+
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedLoans = useMemo(() => {
+    if (!loans) return [];
+
+    return [...loans].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+
+      switch (sortField) {
+        case 'borrower':
+          aVal = (a.borrower?.name || '').toLowerCase();
+          bVal = (b.borrower?.name || '').toLowerCase();
+          break;
+        case 'principal':
+          aVal = a.principalAmountMicros;
+          bVal = b.principalAmountMicros;
+          break;
+        case 'rate':
+          aVal = a.interestRateBps;
+          bVal = b.interestRateBps;
+          break;
+        case 'term':
+          aVal = a.termMonths;
+          bVal = b.termMonths;
+          break;
+        case 'status':
+          aVal = a.status.toLowerCase();
+          bVal = b.status.toLowerCase();
+          break;
+        case 'createdAt':
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [loans, sortField, sortDirection]);
 
   if (isLoading) {
     return (
@@ -39,7 +125,7 @@ export default function LoanList() {
         </Link>
       </div>
 
-      {loans?.length === 0 ? (
+      {sortedLoans.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-500">No loans found. Create your first loan!</p>
         </div>
@@ -48,28 +134,58 @@ export default function LoanList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableHeader
+                  field="borrower"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Borrower
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="principal"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Principal
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="rate"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Interest Rate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="term"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Term
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="status"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="createdAt"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Created
-                </th>
+                </SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loans?.map((loan) => (
+              {sortedLoans.map((loan) => (
                 <tr
                   key={loan.id}
                   onClick={() => navigate(`/loans/${loan.id}`)}

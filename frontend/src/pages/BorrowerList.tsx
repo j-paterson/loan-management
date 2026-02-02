@@ -1,26 +1,91 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
+import type { Borrower } from '../types/borrower';
+
+type SortField = 'name' | 'email' | 'phone' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
+
+function SortableHeader({
+  field,
+  currentField,
+  direction,
+  onSort,
+  children,
+}: {
+  field: SortField;
+  currentField: SortField;
+  direction: SortDirection;
+  onSort: (field: SortField) => void;
+  children: React.ReactNode;
+}) {
+  const isActive = field === currentField;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <span className="text-gray-400">
+          {isActive ? (direction === 'asc' ? '▲' : '▼') : '▲▼'}
+        </span>
+      </div>
+    </th>
+  );
+}
 
 export default function BorrowerList() {
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
   const { data: borrowers, isLoading, error } = useQuery({
     queryKey: ['borrowers'],
     queryFn: borrowersApi.getAll,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: borrowersApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['borrowers'] });
-    },
-  });
-
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete borrower "${name}"?`)) {
-      deleteMutation.mutate(id);
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
+
+  const sortedBorrowers = useMemo(() => {
+    if (!borrowers) return [];
+
+    return [...borrowers].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+
+      switch (sortField) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'email':
+          aVal = a.email.toLowerCase();
+          bVal = b.email.toLowerCase();
+          break;
+        case 'phone':
+          aVal = (a.phone || '').toLowerCase();
+          bVal = (b.phone || '').toLowerCase();
+          break;
+        case 'createdAt':
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [borrowers, sortField, sortDirection]);
 
   if (isLoading) {
     return (
@@ -50,7 +115,7 @@ export default function BorrowerList() {
         </Link>
       </div>
 
-      {borrowers?.length === 0 ? (
+      {sortedBorrowers.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-500">No borrowers found. Create your first borrower!</p>
         </div>
@@ -59,26 +124,47 @@ export default function BorrowerList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableHeader
+                  field="name"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="email"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="phone"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableHeader>
+                <SortableHeader
+                  field="createdAt"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
                   Created
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                </SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {borrowers?.map((borrower) => (
-                <tr key={borrower.id} className="hover:bg-gray-50">
+              {sortedBorrowers.map((borrower) => (
+                <tr
+                  key={borrower.id}
+                  onClick={() => navigate(`/borrowers/${borrower.id}`)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {borrower.name}
                   </td>
@@ -90,21 +176,6 @@ export default function BorrowerList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(borrower.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-3">
-                    <Link
-                      to={`/borrowers/${borrower.id}/edit`}
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(borrower.id, borrower.name)}
-                      disabled={deleteMutation.isPending}
-                      className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
                   </td>
                 </tr>
               ))}
