@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { statusService } from '../services/index.js';
+import { statusService, httpStatus } from '../services/index.js';
 import { VALID_TRANSITIONS } from '../lib/state-machine/index.js';
 import { uuidParamSchema } from '../lib/schemas.js';
 
@@ -49,7 +49,7 @@ router.post(
       // Validate body
       const bodyResult = transitionSchema.safeParse(req.body);
       if (!bodyResult.success) {
-        return res.status(400).json({
+        return res.status(422).json({
           error: {
             message: 'Validation failed',
             details: bodyResult.error.flatten(),
@@ -67,8 +67,7 @@ router.post(
       );
 
       if (!result.success) {
-        const status = result.code === 'NOT_FOUND' ? 404 : 400;
-        return res.status(status).json({ error: { message: result.error } });
+        return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
       }
 
       res.json({ data: result.data });
@@ -95,8 +94,7 @@ router.get(
       const result = await statusService.getAvailableTransitions(req.params.loanId);
 
       if (!result.success) {
-        const status = result.code === 'NOT_FOUND' ? 404 : 400;
-        return res.status(status).json({ error: { message: result.error } });
+        return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
       }
 
       res.json({ data: result.data });

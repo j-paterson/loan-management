@@ -26,6 +26,6 @@ export {
   getLoanEvents,
 } from './event.service.js';
 
-// Re-export types
+// Re-export types and helpers
 export type { ServiceResult, ServiceErrorCode, ActorContext, TxContext } from './types.js';
-export { success, fail } from './types.js';
+export { success, fail, httpStatus } from './types.js';

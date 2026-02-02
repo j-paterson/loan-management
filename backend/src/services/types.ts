@@ -35,3 +35,27 @@ export function success<T>(data: T): ServiceResult<T> {
 export function fail<T>(error: string, code?: ServiceErrorCode): ServiceResult<T> {
   return { success: false, error, code };
 }
+
+/**
+ * Map service error codes to HTTP status codes
+ *
+ * - 400 Bad Request: Generic client error (malformed request)
+ * - 403 Forbidden: Not authorized to perform action
+ * - 404 Not Found: Resource doesn't exist
+ * - 409 Conflict: State conflict (e.g., invalid transition)
+ * - 422 Unprocessable Entity: Valid request but business rule violation
+ */
+export function httpStatus(code?: ServiceErrorCode): number {
+  switch (code) {
+    case 'NOT_FOUND':
+      return 404;
+    case 'VALIDATION':
+      return 422;
+    case 'INVALID_TRANSITION':
+      return 409;
+    case 'FORBIDDEN':
+      return 403;
+    default:
+      return 400;
+  }
+}

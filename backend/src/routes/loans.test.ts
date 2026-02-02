@@ -120,7 +120,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
       expect(response.body.error.message).toBe('Validation failed');
     });
 
@@ -133,7 +133,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
       expect(response.body.error.message).toBe('Validation failed');
     });
 
@@ -146,7 +146,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     // REQUIREMENT: Validate interest rates
@@ -159,7 +159,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects interest rate over 50%', async () => {
@@ -171,7 +171,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('accepts 0% interest rate', async () => {
@@ -196,7 +196,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     // REQUIREMENT: Validate required fields
@@ -208,7 +208,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects missing interest rate', async () => {
@@ -219,7 +219,7 @@ describe('Loans API', () => {
           termMonths: 12,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects missing term', async () => {
@@ -230,7 +230,7 @@ describe('Loans API', () => {
           interestRateBps: 500,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     // REQUIREMENT: Validate term months
@@ -243,7 +243,7 @@ describe('Loans API', () => {
           termMonths: 0,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects term exceeding 600 months', async () => {
@@ -255,7 +255,7 @@ describe('Loans API', () => {
           termMonths: 601,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects non-integer term', async () => {
@@ -267,7 +267,7 @@ describe('Loans API', () => {
           termMonths: 12.5,
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     // REQUIREMENT: Don't crash on bad input
@@ -289,7 +289,7 @@ describe('Loans API', () => {
           termMonths: 'nope',
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
   });
 
@@ -351,7 +351,7 @@ describe('Loans API', () => {
         .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ principalAmountMicros: -10000000 });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('allows partial updates', async () => {

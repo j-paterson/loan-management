@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { paymentService } from '../services/index.js';
+import { paymentService, httpStatus } from '../services/index.js';
 import {
   uuidParamSchema,
   createPaymentSchema,
@@ -33,8 +33,7 @@ router.get('/', async (req: Request<LoanIdParams>, res: Response, next: NextFunc
     const result = await paymentService.listByLoan(req.params.loanId);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
@@ -54,8 +53,7 @@ router.get('/:id', async (req: Request<PaymentParams>, res: Response, next: Next
     const result = await paymentService.getById(req.params.loanId, req.params.id);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
@@ -70,7 +68,7 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
     const parsed = createPaymentSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -81,8 +79,7 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
     const result = await paymentService.create(req.params.loanId, parsed.data, { actorId: 'user' });
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.status(201).json({ data: result.data });
@@ -102,7 +99,7 @@ router.patch('/:id', async (req: Request<PaymentParams>, res: Response, next: Ne
     const parsed = updatePaymentSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -113,8 +110,7 @@ router.patch('/:id', async (req: Request<PaymentParams>, res: Response, next: Ne
     const result = await paymentService.update(req.params.loanId, req.params.id, parsed.data);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
@@ -134,8 +130,7 @@ router.delete('/:id', async (req: Request<PaymentParams>, res: Response, next: N
     const result = await paymentService.remove(req.params.loanId, req.params.id);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });

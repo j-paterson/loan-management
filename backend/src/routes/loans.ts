@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { loanService } from '../services/index.js';
+import { loanService, httpStatus } from '../services/index.js';
 import {
   uuidParamSchema,
   createLoanSchema,
@@ -38,8 +38,7 @@ router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunct
     const result = await loanService.getById(req.params.id);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
@@ -54,7 +53,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const parsed = createLoanSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -65,8 +64,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const result = await loanService.create(parsed.data, { actorId: 'user' });
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.status(201).json({ data: result.data });
@@ -86,7 +84,7 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
     const parsed = updateLoanSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -97,8 +95,7 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
     const result = await loanService.update(req.params.id, parsed.data, { actorId: 'user' });
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
@@ -118,8 +115,7 @@ router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFu
     const result = await loanService.remove(req.params.id);
 
     if (!result.success) {
-      const status = result.code === 'NOT_FOUND' ? 404 : 400;
-      return res.status(status).json({ error: { message: result.error } });
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
     res.json({ data: result.data });
