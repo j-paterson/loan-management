@@ -1,6 +1,21 @@
 import { pgTable, uuid, bigint, integer, timestamp, text } from 'drizzle-orm/pg-core';
 
 /**
+ * Borrowers table
+ */
+export const borrowers = pgTable('borrowers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  phone: text('phone'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+});
+
+export type Borrower = typeof borrowers.$inferSelect;
+
+/**
  * Loans table
  *
  * Monetary values are stored as integers to avoid floating-point precision issues:
@@ -11,6 +26,7 @@ import { pgTable, uuid, bigint, integer, timestamp, text } from 'drizzle-orm/pg-
  */
 export const loans = pgTable('loans', {
   id: uuid('id').defaultRandom().primaryKey(),
+  borrowerId: uuid('borrower_id').references(() => borrowers.id).notNull(),
   principalAmountMicros: bigint('principal_amount_micros', { mode: 'number' }).notNull(),
   interestRateBps: integer('interest_rate_bps').notNull(),
   termMonths: integer('term_months').notNull(),

@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { loanRoutes } from './routes/loans.js';
+import { borrowerRoutes } from './routes/borrowers.js';
 
 const app = express();
 
@@ -10,6 +11,7 @@ app.use(express.json());
 
 // Routes
 app.use('/loans', loanRoutes);
+app.use('/borrowers', borrowerRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

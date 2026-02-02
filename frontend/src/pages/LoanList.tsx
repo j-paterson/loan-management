@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAmount, formatRate } from '../utils/format';
 
 export default function LoanList() {
+  const navigate = useNavigate();
   const { data: loans, isLoading, error } = useQuery({
     queryKey: ['loans'],
     queryFn: loansApi.getAll,
@@ -48,6 +49,9 @@ export default function LoanList() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Borrower
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Principal
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -62,14 +66,23 @@ export default function LoanList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loans?.map((loan) => (
-                <tr key={loan.id} className="hover:bg-gray-50">
+                <tr
+                  key={loan.id}
+                  onClick={() => navigate(`/loans/${loan.id}`)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {loan.borrower?.name ?? 'Unknown'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {loan.borrower?.email}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {formatAmount(loan.principalAmountMicros)}
                   </td>
@@ -84,14 +97,6 @@ export default function LoanList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(loan.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <Link
-                      to={`/loans/${loan.id}`}
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      View
-                    </Link>
                   </td>
                 </tr>
               ))}

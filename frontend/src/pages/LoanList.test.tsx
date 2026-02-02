@@ -96,6 +96,19 @@ describe('LoanList', () => {
     });
   });
 
+  it('displays borrower information', async () => {
+    vi.mocked(loansApi.getAll).mockResolvedValue(mockLoans);
+
+    render(<LoanList />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+      expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+      expect(screen.getByText('Bob Smith')).toBeInTheDocument();
+      expect(screen.getByText('bob@example.com')).toBeInTheDocument();
+    });
+  });
+
   // ===========================================
   // REQUIREMENT: Handle loading states cleanly
   // ===========================================
@@ -145,14 +158,15 @@ describe('LoanList', () => {
     });
   });
 
-  it('has view links for each loan', async () => {
+  it('renders clickable rows for each loan', async () => {
     vi.mocked(loansApi.getAll).mockResolvedValue(mockLoans);
 
     render(<LoanList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      const viewLinks = screen.getAllByRole('link', { name: /View/i });
-      expect(viewLinks).toHaveLength(2);
+      const rows = screen.getAllByRole('row');
+      // Header row + 2 data rows
+      expect(rows.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

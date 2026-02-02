@@ -99,6 +99,23 @@ export default function LoanDetail() {
               <dd className="mt-1 text-lg text-gray-900">{loan.status}</dd>
             </div>
 
+            <div className="md:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Borrower</dt>
+              <dd className="mt-1 text-lg text-gray-900">
+                {loan.borrower ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">{loan.borrower.name}</span>
+                    <span className="text-sm text-gray-600">{loan.borrower.email}</span>
+                    {loan.borrower.phone && (
+                      <span className="text-sm text-gray-600">{loan.borrower.phone}</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 italic">No borrower assigned</span>
+                )}
+              </dd>
+            </div>
+
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
               <dd className="mt-1 text-lg text-gray-900">

@@ -65,6 +65,7 @@ describe('Loans API', () => {
           principalAmountMicros: 500000000, // $50,000
           interestRateBps: 550,             // 5.50%
           termMonths: 60,
+          newBorrower: { name: 'Test User', email: 'test@example.com' },
         });
 
       expect(response.status).toBe(201);
@@ -82,6 +83,7 @@ describe('Loans API', () => {
           interestRateBps: 550,
           termMonths: 60,
           status: 'ACTIVE',
+          newBorrower: { name: 'Test User', email: 'test@example.com' },
         });
 
       expect(response.status).toBe(201);
@@ -158,6 +160,7 @@ describe('Loans API', () => {
           principalAmountMicros: 500000000,
           interestRateBps: 0,
           termMonths: 12,
+          newBorrower: { name: 'Test User', email: 'test@example.com' },
         });
 
       expect(response.status).toBe(201);
@@ -361,6 +364,7 @@ describe('Loans API', () => {
           principalAmountMicros: 500000000,
           interestRateBps: 500,
           termMonths: 12,
+          newBorrower: { name: 'Test User', email: 'test@example.com' },
         });
 
       expect(response.status).toBe(201);
