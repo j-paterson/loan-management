@@ -3,6 +3,7 @@ import cors from 'cors';
 import { loanRoutes } from './routes/loans.js';
 import { borrowerRoutes } from './routes/borrowers.js';
 import { paymentRoutes } from './routes/payments.js';
+import { loanStatusRoutes } from './routes/loan-status.js';
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 // Routes
 app.use('/loans', loanRoutes);
+app.use('/loans', loanStatusRoutes); // Status transition routes under /loans/:loanId/status/*
 app.use('/loans/:loanId/payments', paymentRoutes);
 app.use('/borrowers', borrowerRoutes);
 

@@ -1,13 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { loans, borrowers, payments } from '../db/schema.js';
+import { loans, borrowers, payments, type LoanStatus } from '../db/schema.js';
 import {
   uuidParamSchema,
   createLoanSchema,
   updateLoanSchema,
 } from '../lib/schemas.js';
 import { money, micros, subtractMoney } from '../lib/money.js';
+import { recordInitialStatus } from '../lib/state-machine/index.js';
 
 // Type for routes with :id parameter
 interface IdParams {
@@ -165,16 +166,21 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       borrower = borrowerResult[0];
     }
 
+    const initialStatus = (parsed.data.status ?? 'DRAFT') as LoanStatus;
+
     const result = await db
       .insert(loans)
       .values({
         principalAmountMicros: parsed.data.principalAmountMicros,
         interestRateBps: parsed.data.interestRateBps,
         termMonths: parsed.data.termMonths,
-        status: parsed.data.status ?? 'DRAFT',
+        status: initialStatus,
         borrowerId: borrowerId!,
       })
       .returning();
+
+    // Record initial status in audit history
+    await recordInitialStatus(result[0].id, initialStatus, 'user');
 
     res.status(201).json({ data: { ...result[0], borrower } });
   } catch (err) {

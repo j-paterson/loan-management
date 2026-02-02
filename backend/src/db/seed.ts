@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { loans, borrowers, payments } from './schema.js';
+import { loans, borrowers, payments, loanStatusHistory, type LoanStatus } from './schema.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -12,46 +12,87 @@ if (!connectionString) {
 const client = postgres(connectionString);
 const db = drizzle(client);
 
+// Sample borrowers with credit profiles for underwriting
 const sampleBorrowers = [
-  { name: 'Alice Johnson', email: 'alice.johnson@email.com', phone: '555-0101' },
-  { name: 'Bob Smith', email: 'bob.smith@email.com', phone: '555-0102' },
-  { name: 'Carol Williams', email: 'carol.williams@email.com', phone: '555-0103' },
-  { name: 'David Brown', email: 'david.brown@email.com', phone: '555-0104' },
-  { name: 'Eva Martinez', email: 'eva.martinez@email.com', phone: '555-0105' },
+  {
+    name: 'Alice Johnson',
+    email: 'alice.johnson@email.com',
+    phone: '555-0101',
+    creditScore: 750,
+    annualIncomeMicros: 850000000, // $85,000
+    monthlyDebtMicros: 15000000,   // $1,500/month existing debt
+  },
+  {
+    name: 'Bob Smith',
+    email: 'bob.smith@email.com',
+    phone: '555-0102',
+    creditScore: 680,
+    annualIncomeMicros: 650000000, // $65,000
+    monthlyDebtMicros: 8000000,    // $800/month existing debt
+  },
+  {
+    name: 'Carol Williams',
+    email: 'carol.williams@email.com',
+    phone: '555-0103',
+    creditScore: 720,
+    annualIncomeMicros: 950000000, // $95,000
+    monthlyDebtMicros: 20000000,   // $2,000/month existing debt
+  },
+  {
+    name: 'David Brown',
+    email: 'david.brown@email.com',
+    phone: '555-0104',
+    creditScore: 590, // Below minimum - will fail underwriting
+    annualIncomeMicros: 450000000, // $45,000
+    monthlyDebtMicros: 12000000,   // $1,200/month existing debt
+  },
+  {
+    name: 'Eva Martinez',
+    email: 'eva.martinez@email.com',
+    phone: '555-0105',
+    creditScore: 800,
+    annualIncomeMicros: 1200000000, // $120,000
+    monthlyDebtMicros: 25000000,    // $2,500/month existing debt
+  },
 ];
 
 // Amounts in micro-units (10,000ths of a dollar): $50,000 = 500000000
 // Rates in basis points: 5.5% = 550 bps
-const sampleLoans = [
+const sampleLoans: Array<{
+  principalAmountMicros: number;
+  interestRateBps: number;
+  termMonths: number;
+  status: LoanStatus;
+}> = [
   {
     principalAmountMicros: 500000000,  // $50,000
     interestRateBps: 550,              // 5.50%
     termMonths: 60,
-    status: 'ACTIVE' as const,
+    status: 'ACTIVE',
   },
   {
     principalAmountMicros: 250000000,  // $25,000
     interestRateBps: 450,              // 4.50%
     termMonths: 36,
-    status: 'ACTIVE' as const,
+    status: 'ACTIVE',
   },
   {
     principalAmountMicros: 1000000000, // $100,000
     interestRateBps: 650,              // 6.50%
     termMonths: 120,
-    status: 'DRAFT' as const,
+    status: 'DRAFT',
   },
   {
     principalAmountMicros: 150000000,  // $15,000
     interestRateBps: 399,              // 3.99%
     termMonths: 24,
-    status: 'CLOSED' as const,
+    status: 'PAID_OFF', // Changed from CLOSED
   },
   {
     principalAmountMicros: 750000000,  // $75,000
     interestRateBps: 525,              // 5.25%
     termMonths: 84,
-    status: 'ACTIVE' as const,
+    status: 'ACTIVE',
   },
 ];
 
@@ -60,6 +101,7 @@ async function main() {
 
   // Clear existing data first (order matters due to foreign keys)
   await db.delete(payments);
+  await db.delete(loanStatusHistory);
   await db.delete(loans);
   await db.delete(borrowers);
   console.log('Cleared existing data');
@@ -76,6 +118,19 @@ async function main() {
 
   const insertedLoans = await db.insert(loans).values(loansWithBorrowers).returning();
   console.log(`Inserted ${insertedLoans.length} sample loans`);
+
+  // Create status history entries for each loan
+  const statusHistoryEntries = insertedLoans.map(loan => ({
+    loanId: loan.id,
+    fromStatus: null,
+    toStatus: loan.status as LoanStatus,
+    changedAt: loan.createdAt,
+    changedBy: 'seed',
+    reason: 'Initial loan creation',
+  }));
+
+  await db.insert(loanStatusHistory).values(statusHistoryEntries);
+  console.log(`Inserted ${statusHistoryEntries.length} status history entries`);
 
   // Insert sample payments for ACTIVE loans
   // Amounts in micro-units: $5,000 = 50000000
