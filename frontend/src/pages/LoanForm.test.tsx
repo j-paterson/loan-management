@@ -280,17 +280,19 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
-      // Wait for borrowers to load
-      await waitFor(() => {
-        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
-      });
-
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
 
-      // Select a borrower
-      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
+      // Select a borrower using BorrowerSearch - click the search input to open dropdown
+      const borrowerSearch = screen.getByPlaceholderText(/Search borrowers/i);
+      await user.click(borrowerSearch);
+
+      // Wait for dropdown and click John Doe
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('John Doe'));
 
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
@@ -318,13 +320,20 @@ describe('LoanForm', () => {
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
 
-      // Click to create new borrower
+      // Open borrower search dropdown and click to create new borrower
+      const borrowerSearch = screen.getByPlaceholderText(/Search borrowers/i);
+      await user.click(borrowerSearch);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Create new borrower/i)).toBeInTheDocument();
+      });
       await user.click(screen.getByText(/Create new borrower/i));
 
-      // Fill in new borrower details
-      await user.type(screen.getByLabelText(/^Name$/i), 'New Borrower');
-      await user.type(screen.getByLabelText(/^Email$/i), 'new@example.com');
-      await user.type(screen.getByLabelText(/Phone/i), '555-9999');
+      // Fill in new borrower details - use IDs since labels have special formatting
+      await user.clear(screen.getByRole('textbox', { name: /^Name$/i }));
+      await user.type(screen.getByRole('textbox', { name: /^Name$/i }), 'New Borrower');
+      await user.type(screen.getByRole('textbox', { name: /Email/i }), 'new@example.com');
+      await user.type(screen.getByRole('textbox', { name: /Phone/i }), '555-9999');
 
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
@@ -348,15 +357,18 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
-      // Wait for borrowers to load
-      await waitFor(() => {
-        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
-      });
-
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
-      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
+
+      // Select a borrower
+      const borrowerSearch = screen.getByPlaceholderText(/Search borrowers/i);
+      await user.click(borrowerSearch);
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('John Doe'));
+
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
       await waitFor(() => {
@@ -370,15 +382,18 @@ describe('LoanForm', () => {
       const user = userEvent.setup();
       renderCreateForm();
 
-      // Wait for borrowers to load
-      await waitFor(() => {
-        expect(screen.getByText(/John Doe/)).toBeInTheDocument();
-      });
-
       await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
       await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
       await user.type(screen.getByLabelText(/Term/i), '60');
-      await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'borrower-1');
+
+      // Select a borrower
+      const borrowerSearch = screen.getByPlaceholderText(/Search borrowers/i);
+      await user.click(borrowerSearch);
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('John Doe'));
+
       await user.click(screen.getByRole('button', { name: /Create Loan/i }));
 
       await waitFor(() => {

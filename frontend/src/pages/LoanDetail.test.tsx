@@ -15,27 +15,6 @@ vi.mock('../api/loans', () => ({
 
 import { loansApi } from '../api/loans';
 
-const createWrapper = (initialEntry = '/loans/1') => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
-
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/loans/:id" element={children} />
-          <Route path="/loans" element={<div>Loan List</div>} />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-};
-
 // Helper to render with route
 const renderWithRoute = () => {
   const queryClient = new QueryClient({
@@ -171,13 +150,14 @@ describe('LoanDetail', () => {
     });
   });
 
-  it('has back to loans link', async () => {
+  it('has breadcrumb navigation to loans list', async () => {
     vi.mocked(loansApi.getById).mockResolvedValue(mockLoan);
 
     renderWithRoute();
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Back to loans/i })).toBeInTheDocument();
+      // Breadcrumb has "Loans" link back to the list
+      expect(screen.getByRole('link', { name: /Loans/i })).toBeInTheDocument();
     });
   });
 });

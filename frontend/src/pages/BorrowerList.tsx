@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
-import type { Borrower } from '../types/borrower';
-
 type SortField = 'name' | 'email' | 'phone' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
