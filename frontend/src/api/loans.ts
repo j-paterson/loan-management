@@ -6,6 +6,17 @@ export interface TransitionInput {
   reason?: string;
 }
 
+export interface TransitionOption {
+  toStatus: LoanStatus;
+  allowed: boolean;
+  reason: string | null;
+}
+
+export interface AvailableTransitionsResponse {
+  currentStatus: LoanStatus;
+  transitions: TransitionOption[];
+}
+
 export const loansApi = {
   getAll: async (): Promise<Loan[]> => {
     const response = await api.get<ApiResponse<Loan[]>>('/loans');
@@ -34,6 +45,11 @@ export const loansApi = {
 
   transition: async (id: string, input: TransitionInput): Promise<Loan> => {
     const response = await api.post<ApiResponse<Loan>>(`/loans/${id}/status/transition`, input);
+    return response.data;
+  },
+
+  getAvailableTransitions: async (id: string): Promise<AvailableTransitionsResponse> => {
+    const response = await api.get<ApiResponse<AvailableTransitionsResponse>>(`/loans/${id}/status/available-transitions`);
     return response.data;
   },
 };

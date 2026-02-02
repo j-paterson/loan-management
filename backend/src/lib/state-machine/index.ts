@@ -7,6 +7,8 @@ import { recordStatusChange } from '../events/index.js';
 
 export { isValidTransition, getValidNextStatuses, isTerminalStatus } from './transitions.js';
 export { STATUS_CATEGORIES, VALID_TRANSITIONS } from './transitions.js';
+export { checkTransitionGuard } from './guards.js';
+export type { TransitionContext } from './guards.js';
 
 /**
  * Result of a transition attempt
