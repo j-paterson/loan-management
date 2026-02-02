@@ -58,6 +58,8 @@ Loans progress through a defined lifecycle with guard conditions enforcing busin
 
 Every status transition is validated server-side. If conditions aren't met, the operation fails with a descriptive error.
 
+The UI displays all possible transitions for the current status. Blocked transitions appear greyed out with a tooltip showing the guard failure reason on hover.
+
 #### Origination Phase
 
 | Transition | Guard Conditions |
@@ -120,13 +122,13 @@ If the borrower has no income data on file, the DTI check is skipped.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  pages/                    api/                     types/                  │
 │  ├── LoanList.tsx         ├── client.ts            ├── loan.ts             │
-│  ├── LoanDetail.tsx       ├── loans.ts             │   └── VALID_TRANSITIONS│
-│  ├── LoanForm.tsx         ├── borrowers.ts         └── borrower.ts         │
-│  ├── BorrowerList.tsx     └── events.ts                                     │
-│  └── BorrowerForm.tsx                              components/              │
-│                           lib/                     └── StatusBadge.tsx      │
-│                           ├── money.ts                                      │
-│                           └── validation.ts                                 │
+│  ├── LoanDetail.tsx       ├── loans.ts             └── borrower.ts         │
+│  ├── LoanForm.tsx         ├── borrowers.ts                                  │
+│  ├── BorrowerList.tsx     └── events.ts            components/              │
+│  ├── BorrowerDetail.tsx                            ├── StatusBadge.tsx      │
+│  └── BorrowerForm.tsx     lib/                     ├── ConfirmModal.tsx     │
+│                           ├── money.ts             ├── PaymentForm.tsx      │
+│                           └── validation.ts        └── Card, Button, etc.   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ HTTP (REST)
@@ -300,6 +302,7 @@ Copy `backend/.env.example` to `backend/.env` for local development.
 - `PATCH /loans/:id` — Update loan details
 - `DELETE /loans/:id` — Soft delete loan
 - `POST /loans/:id/status/transition` — Transition loan status
+- `GET /loans/:id/status/available-transitions` — Get possible transitions with guard results
 - `GET /loans/:id/events` — Get loan activity trail
 
 ### Borrowers
