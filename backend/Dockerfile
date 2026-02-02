@@ -2,14 +2,17 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy shared package first
+COPY shared /shared
 
-# Install dependencies
-RUN npm ci
+# Copy package files
+COPY backend/package*.json ./
+
+# Install dependencies (shared package is referenced as file:../shared)
+RUN npm ci --ignore-scripts
 
 # Copy source code
-COPY . .
+COPY backend/ .
 
 # Expose port
 EXPOSE 3001
