@@ -233,7 +233,6 @@ The schema is normalized to 3NF with a few intentional denormalizations for prac
 | Field | Why Duplicated |
 |-------|----------------|
 | `loan_events.payment_amount_micros` | Preserves amount at time of event; if payment is later edited, audit trail remains accurate |
-| `loans.submitted_at/approved_at/disbursed_at` | Could derive from events, but direct storage enables fast queries without scanning event history |
 
 **Calculated at runtime (not stored):**
 
