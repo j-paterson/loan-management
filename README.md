@@ -1,42 +1,33 @@
 # Loan Management Application
 
-A full-stack loan management application built with React, TypeScript, Express, and PostgreSQL.
+## Overview
 
-## Quick Start
+A full-stack loan management system for tracking loans and borrowers. Built with React and TypeScript on the frontend, Express and Drizzle ORM on the backend, with PostgreSQL for persistence.
 
-### Option 1: Docker Compose (Recommended)
+The application allows users to:
+- Create and manage borrowers with contact information
+- Create loans with inline borrower creation (atomic operation)
+- Track loan details: principal amount, interest rate, term, and status
+- View loan lists with borrower information and navigate to details
 
-Run the entire stack with one command:
+## How to Run Locally
 
+**Option 1: Docker Compose (one command)**
 ```bash
-docker compose up --build -d
-docker exec loan-api npm run db:push
-docker exec loan-api npm run db:seed
+docker compose up --build -d && docker exec loan-api npm run db:push && docker exec loan-api npm run db:seed
 ```
 
-### Option 2: Local Development
-
+**Option 2: Local development**
 ```bash
-# Start PostgreSQL
+# Terminal 1: Start database and backend
 docker compose up postgres -d
+cd backend && cp .env.example .env && npm install && npm run db:push && npm run db:seed && npm run dev
 
-# Backend
-cd backend
-cp .env.example .env
-npm install
-npm run db:push
-npm run db:seed
-npm run dev
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm run dev
+# Terminal 2: Start frontend
+cd frontend && npm install && npm run dev
 ```
 
-The app will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:3001
+Access the app at http://localhost:5173 (API at http://localhost:3001).
 
 ## Environment Variables
 
@@ -47,141 +38,91 @@ The app will be available at:
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/loan_management` |
 | `PORT` | API server port | `3001` |
 
-## Project Structure
-
-```
-loan-management/
-├── backend/                 # Express API
-│   ├── src/
-│   │   ├── db/             # Database schema, migrations, seed
-│   │   ├── routes/         # API routes
-│   │   ├── app.ts          # Express app configuration
-│   │   └── index.ts        # Server entry point
-│   └── package.json
-├── frontend/               # React application
-│   ├── src/
-│   │   ├── api/           # API client
-│   │   ├── pages/         # Page components
-│   │   ├── types/         # TypeScript types
-│   │   └── App.tsx        # Routes configuration
-│   └── package.json
-├── docker-compose.yml      # PostgreSQL container
-└── README.md
-```
+Copy `backend/.env.example` to `backend/.env` for local development.
 
 ## Database Setup
 
-The application uses PostgreSQL. The easiest way to run it locally is with Docker:
+1. **Start PostgreSQL** (via Docker):
+   ```bash
+   docker compose up postgres -d
+   ```
 
-```bash
-docker compose up -d
-```
+2. **Create tables**:
+   ```bash
+   cd backend && npm run db:push
+   ```
 
-Then push the schema and seed data:
+3. **Seed sample data** (optional):
+   ```bash
+   npm run db:seed
+   ```
 
-```bash
-cd backend
-npm run db:push    # Create tables
-npm run db:seed    # Insert sample data
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/loans` | List all loans |
-| `GET` | `/loans/:id` | Get loan by ID |
-| `POST` | `/loans` | Create new loan |
-| `PATCH` | `/loans/:id` | Update loan |
-| `DELETE` | `/loans/:id` | Soft delete loan |
-| `GET` | `/health` | Health check |
-
-### Request/Response Format
-
-All responses are wrapped in a consistent format:
-
-```json
-// Success
-{ "data": { ... } }
-
-// Error
-{ "error": { "message": "...", "details": { ... } } }
-```
+This creates sample borrowers and loans for testing.
 
 ## Key Technical Decisions
 
-### Database Schema
+### Schema Design
 
-- **DECIMAL precision**: Used `DECIMAL(19,4)` for monetary amounts and `DECIMAL(7,6)` for interest rates to avoid floating-point precision issues
-- **Soft delete**: Loans have a `deletedAt` timestamp rather than being permanently deleted, preserving audit trails
-- **Interest rate storage**: Stored as a decimal (0.055 = 5.5%) rather than percentage to simplify calculations
-- **Term**: Used months as the unit for loan terms (more granular than years, industry standard)
+| Decision | Rationale |
+|----------|-----------|
+| **Integer currency (micro-units)** | Store amounts as integers in micro-units (1 dollar = 10,000 micros) to avoid floating-point precision errors in financial calculations |
+| **Integer rates (basis points)** | Store interest rates as basis points (5.5% = 550 bps) for precision without decimals |
+| **Borrower as required** | Every loan must have a borrower; supports inline creation for convenience |
+| **Soft delete** | `deletedAt` timestamp preserves audit trails instead of permanent deletion |
+| **UUID primary keys** | Prevents enumeration attacks and simplifies distributed systems |
 
-### Backend
+### Libraries
 
-- **Express**: Chosen for simplicity and widespread familiarity
-- **Drizzle ORM**: Type-safe query builder with excellent TypeScript support
-- **Zod**: Runtime validation that integrates well with TypeScript types
-- **Soft delete by default**: DELETE operations set `deletedAt` rather than removing records
+| Library | Why |
+|---------|-----|
+| **Drizzle ORM** | Type-safe SQL queries with excellent TypeScript inference |
+| **Zod** | Runtime validation that generates TypeScript types |
+| **TanStack Query** | Handles caching, background refetching, and server state |
+| **Tailwind CSS** | Utility-first CSS for rapid, consistent styling |
 
-### Frontend
+### API Design
 
-- **TanStack Query**: Handles server state, caching, and automatic refetching
-- **Native fetch**: Used instead of Axios to minimize dependencies and demonstrate platform knowledge
-- **React Router**: Standard routing solution for React applications
-- **Tailwind CSS**: Utility-first CSS for rapid UI development
-
-### Validation Rules
-
-| Field | Rules |
-|-------|-------|
-| Principal Amount | Required, positive, max $10,000,000 |
-| Interest Rate | Required, 0-100% (stored as decimal 0-1) |
-| Term | Required, 1-600 months, integer only |
-| Status | DRAFT or ACTIVE (CLOSED/ARCHIVED reserved for future use) |
+- RESTful endpoints with consistent response format: `{ data: ... }` or `{ error: { message, details } }`
+- Validation errors return 400 with Zod error details
+- All list endpoints exclude soft-deleted records
 
 ## Assumptions Made
 
-1. **Single currency**: All amounts are in USD
-2. **Simple interest**: No compound interest calculations in this version
-3. **No authentication**: The app assumes a single-user context for this exercise
-4. **Status transitions**: Currently allows any status change; a production app would enforce valid transitions
-5. **No borrower association**: Loans exist independently; a production system would link to borrower records
+1. **Single currency (USD)** — All monetary amounts are in US dollars
+2. **Simple interest** — No compound interest calculations; rate stored for display/reference
+3. **No authentication** — Single-user context; production would add JWT/session auth
+4. **Flexible status transitions** — Any status change allowed; production would enforce valid state machine
+5. **Term in months** — Industry standard granularity for loan terms
+
+## What I'd Improve
+
+Given more time:
+
+1. **Payment tracking** — Record payments, calculate remaining balance, generate amortization schedules
+2. **Activity log** — Audit trail for all loan/borrower changes
+3. **Authentication & authorization** — JWT auth with role-based access control
+4. **Pagination & filtering** — Handle large datasets with cursor pagination, filter by status/date/amount
+5. **E2E tests** — Playwright tests for critical user flows
+6. **Borrower management UI** — Dedicated pages for listing/editing borrowers independently
 
 ## Testing
 
 ```bash
-# Backend tests (31 tests)
+# Backend (42 tests)
 cd backend && npm test
 
-# Frontend tests (39 tests)
+# Frontend (41 tests)
 cd frontend && npm test
 ```
 
-Tests cover:
-- All API endpoints and validation rules
-- Component rendering and user interactions
-- Loading and error states
-- Form validation feedback
-
-## What I'd Improve
-
-Given more time, I would add:
-
-1. **Borrower entity**: Link loans to borrower records with contact information
-2. **Payment tracking**: Record payments and calculate remaining balance
-3. **Activity log**: Track all changes to loans for audit purposes
-4. **Authentication**: Protect endpoints with JWT or session-based auth
-5. **Pagination**: Add pagination for the loans list endpoint
-6. **Advanced filtering**: Filter loans by status, amount range, date range
-7. **E2E tests**: Add Playwright or Cypress tests for full user flows
+Tests cover API endpoints, validation rules, component rendering, form interactions, and error states.
 
 ## AI Tool Usage
 
-This project was built with assistance from Claude (Anthropic). AI was used for:
-- Initial project scaffolding and boilerplate
-- Writing test suites
-- Debugging configuration issues
-- Code review and suggestions
+Built with Claude Code (Anthropic). AI assisted with:
+- Project scaffolding and configuration
+- Writing comprehensive test suites
+- Debugging and code review
+- Documentation
 
-All code was reviewed and understood before committing.
+All generated code was reviewed and understood before committing.
