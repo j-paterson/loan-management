@@ -57,26 +57,7 @@ The schema is normalized to 3NF with a few intentional denormalizations for prac
 
 ### Service Layer + Transaction Consistency                                            
                                                                                 
-Zod validates at the route layer, before data reaches services. Business logic is handled by services. Operations that touch multiple tables (loan + event) happen in a single transaction — either both succeed or both roll back.
-
-All operations that modify multiple tables use database transactions:
-
-```typescript
-await db.transaction(async (tx) => {
-  // 1. Create borrower if inline
-  const [borrower] = await tx.insert(borrowers).values({...}).returning();
-
-  // 2. Insert loan
-  const [loan] = await tx.insert(loans).values({...}).returning();
-
-  // 3. Record event in same transaction
-  await recordLoanCreated(loan.id, loan.status, 'user', tx);
-
-  return { loan, borrower };
-});
-```
-
-If any step fails, the entire operation rolls back—no orphaned records or inconsistent state.
+Zod validates at the route layer, before data reaches services. Business logic is handled by services. Operations that touch multiple tables (loan + event) happen in a single transaction — either both succeed or both roll back. All operations that modify multiple tables use these database transactions.
 
 ### Libraries
 
