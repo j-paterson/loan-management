@@ -101,7 +101,7 @@ describe('LoanForm', () => {
       expect(screen.getByLabelText(/Principal Amount/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Interest Rate/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Term/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Status/i)).toBeInTheDocument();
+      // Status is managed via state machine on detail page, not form
     });
 
     it('has submit button', async () => {
@@ -302,7 +302,7 @@ describe('LoanForm', () => {
         expect(callArg.principalAmountMicros).toBe(500000000); // $50,000 in micro-units
         expect(callArg.interestRateBps).toBe(550); // 5.5% in basis points
         expect(callArg.termMonths).toBe(60);
-        expect(callArg.status).toBe('DRAFT');
+        // Status defaults to DRAFT on backend - not sent from form
         expect(callArg.borrowerId).toBe('borrower-1');
       });
     });

@@ -30,6 +30,12 @@ export const NAME_MAX_LENGTH = 255;
 export const EMAIL_MAX_LENGTH = 255;
 export const PHONE_MAX_LENGTH = 50;
 
+// Credit profile limits
+export const CREDIT_SCORE_MIN = 300;
+export const CREDIT_SCORE_MAX = 850;
+export const ANNUAL_INCOME_MAX_DOLLARS = 100_000_000;
+export const MONTHLY_DEBT_MAX_DOLLARS = 10_000_000;
+
 // Loan statuses
 export const LOAN_STATUSES = ['DRAFT', 'ACTIVE'] as const;
 export type LoanStatus = (typeof LOAN_STATUSES)[number];

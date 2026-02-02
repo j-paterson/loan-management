@@ -5,4 +5,5 @@ export { StatusBadge } from './StatusBadge';
 export { PaymentForm } from './PaymentForm';
 export { BorrowerSearch } from './BorrowerSearch';
 export { Breadcrumbs } from './Breadcrumbs';
+export { ConfirmModal } from './ConfirmModal';
 export type { BreadcrumbItem } from './Breadcrumbs';

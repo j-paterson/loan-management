@@ -26,6 +26,48 @@ export type LoanStatus =
 
 export type EventType = 'LOAN_CREATED' | 'LOAN_EDITED' | 'STATUS_CHANGE' | 'PAYMENT_RECEIVED';
 
+/**
+ * Valid status transitions - must match backend state machine
+ */
+export const VALID_TRANSITIONS: Record<LoanStatus, readonly LoanStatus[]> = {
+  // Pre-disbursement (origination)
+  DRAFT: ['SUBMITTED', 'WITHDRAWN'],
+  SUBMITTED: ['UNDER_REVIEW', 'WITHDRAWN'],
+  UNDER_REVIEW: ['APPROVED', 'DENIED', 'INFO_REQUESTED'],
+  INFO_REQUESTED: ['UNDER_REVIEW', 'WITHDRAWN'],
+  APPROVED: ['ACTIVE', 'EXPIRED', 'WITHDRAWN'],
+  DENIED: [], // terminal
+  WITHDRAWN: [], // terminal
+  EXPIRED: [], // terminal
+  // Post-disbursement (servicing)
+  ACTIVE: ['DELINQUENT', 'PAID_OFF', 'REFINANCED'],
+  DELINQUENT: ['ACTIVE', 'DEFAULT'],
+  DEFAULT: ['ACTIVE', 'CHARGED_OFF'],
+  CHARGED_OFF: ['PAID_OFF'],
+  PAID_OFF: [], // terminal
+  REFINANCED: [], // terminal
+};
+
+/**
+ * Human-readable status labels
+ */
+export const STATUS_LABELS: Record<LoanStatus, string> = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Submitted',
+  UNDER_REVIEW: 'Under Review',
+  INFO_REQUESTED: 'Info Requested',
+  APPROVED: 'Approved',
+  DENIED: 'Denied',
+  WITHDRAWN: 'Withdrawn',
+  EXPIRED: 'Expired',
+  ACTIVE: 'Active',
+  DELINQUENT: 'Delinquent',
+  DEFAULT: 'Default',
+  CHARGED_OFF: 'Charged Off',
+  PAID_OFF: 'Paid Off',
+  REFINANCED: 'Refinanced',
+};
+
 export interface Loan {
   id: string;
   borrowerId: string;

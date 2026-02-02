@@ -19,7 +19,6 @@ interface FormData {
   principalAmount: string;
   interestRate: string;
   termMonths: string;
-  status: 'DRAFT' | 'ACTIVE';
   borrowerId: string;
 }
 
@@ -46,7 +45,6 @@ export default function LoanForm() {
     principalAmount: '',
     interestRate: '',
     termMonths: '',
-    status: 'DRAFT',
     borrowerId: '',
   });
 
@@ -70,9 +68,6 @@ export default function LoanForm() {
         principalAmount: (existingLoan.principalAmountMicros / MICROS_PER_DOLLAR).toString(),
         interestRate: (existingLoan.interestRateBps / 100).toString(),
         termMonths: existingLoan.termMonths.toString(),
-        status: existingLoan.status === 'DRAFT' || existingLoan.status === 'ACTIVE'
-          ? existingLoan.status
-          : 'DRAFT',
         borrowerId: existingLoan.borrowerId,
       });
     }
@@ -91,6 +86,7 @@ export default function LoanForm() {
     mutationFn: (data: UpdateLoanInput) => loansApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['events', id] });
       navigate(`/loans/${id}`);
     },
   });
@@ -136,7 +132,6 @@ export default function LoanForm() {
         principalAmountMicros: parseAmount(form.principalAmount),
         interestRateBps: parseRate(form.interestRate),
         termMonths: parseInt(form.termMonths),
-        status: form.status,
       };
 
       if (newBorrower) {
@@ -151,11 +146,11 @@ export default function LoanForm() {
 
       updateMutation.mutate(updateData);
     } else {
+      // New loans always start as DRAFT - use state machine to transition
       const data: CreateLoanInput = {
         principalAmountMicros: parseAmount(form.principalAmount),
         interestRateBps: parseRate(form.interestRate),
         termMonths: parseInt(form.termMonths),
-        status: form.status,
       };
 
       if (newBorrower) {
@@ -173,7 +168,7 @@ export default function LoanForm() {
   };
 
   const handleChange = (field: keyof FormData) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
     setForm({ ...form, [field]: e.target.value });
     if (errors[field as keyof FormErrors]) {
@@ -257,20 +252,8 @@ export default function LoanForm() {
                 </FormField>
               </div>
 
-              {/* Right Column - Status & Borrower */}
+              {/* Right Column - Borrower */}
               <div className="space-y-6">
-                <FormField label="Status" htmlFor="status">
-                  <select
-                    id="status"
-                    value={form.status}
-                    onChange={handleChange('status')}
-                    className={inputStyles(false)}
-                  >
-                    <option value="DRAFT">Draft</option>
-                    <option value="ACTIVE">Active</option>
-                  </select>
-                </FormField>
-
                 {/* Borrower Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

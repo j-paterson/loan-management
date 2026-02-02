@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, sum } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { loans, borrowers, type LoanStatus, type Loan } from '../../db/schema.js';
+import { loans, borrowers, payments, type LoanStatus, type Loan } from '../../db/schema.js';
 import { isValidTransition, getValidNextStatuses, isTerminalStatus } from './transitions.js';
 import { checkTransitionGuard, type TransitionContext } from './guards.js';
 import { recordStatusChange } from '../events/index.js';
@@ -72,10 +72,20 @@ export async function transitionLoanStatus(options: TransitionOptions): Promise<
 
   const borrower = borrowerResult[0];
 
+  // Calculate remaining balance for guards
+  const [paymentSum] = await db
+    .select({ total: sum(payments.amountMicros) })
+    .from(payments)
+    .where(eq(payments.loanId, loanId));
+
+  const totalPayments = Number(paymentSum?.total || 0);
+  const remainingBalanceMicros = loan.principalAmountMicros - totalPayments;
+
   // Build context for guards
   const context: TransitionContext = {
     loan,
     borrower,
+    remainingBalanceMicros,
   };
 
   // Check guard conditions

@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { loansApi } from '../api/loans';
-import { paymentsApi } from '../api/payments';
 import { borrowersApi } from '../api/borrowers';
 import { eventsApi } from '../api/events';
-import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm, Breadcrumbs } from '../components';
+import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm, Breadcrumbs, ConfirmModal } from '../components';
 import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
-import type { EventType } from '../types/loan';
+import type { EventType, LoanStatus } from '../types/loan';
+import { VALID_TRANSITIONS, STATUS_LABELS } from '../types/loan';
 
 // Event type icons and colors
 function EventIcon({ eventType }: { eventType: EventType }) {
@@ -62,6 +62,8 @@ export default function LoanDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingTransition, setPendingTransition] = useState<LoanStatus | null>(null);
 
   // Check if we navigated from a borrower page
   const fromBorrower = searchParams.get('from') === 'borrower';
@@ -70,12 +72,6 @@ export default function LoanDetail() {
   const { data: loan, isLoading, error } = useQuery({
     queryKey: ['loans', id],
     queryFn: () => loansApi.getById(id!),
-    enabled: !!id,
-  });
-
-  const { data: payments = [] } = useQuery({
-    queryKey: ['payments', id],
-    queryFn: () => paymentsApi.getByLoanId(id!),
     enabled: !!id,
   });
 
@@ -115,11 +111,38 @@ export default function LoanDetail() {
     },
   });
 
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this loan?')) {
-      deleteMutation.mutate();
+  const transitionMutation = useMutation({
+    mutationFn: (toStatus: LoanStatus) => loansApi.transition(id!, { toStatus }),
+    onSuccess: () => {
+      setPendingTransition(null);
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['events', id] });
+    },
+    onError: () => {
+      // Keep modal open on error so user can see the error or retry
+    },
+  });
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    deleteMutation.mutate();
+  };
+
+  const handleTransitionClick = (toStatus: LoanStatus) => {
+    setPendingTransition(toStatus);
+  };
+
+  const handleTransitionConfirm = () => {
+    if (pendingTransition) {
+      transitionMutation.mutate(pendingTransition);
     }
   };
+
+  // Get available transitions for current status
+  const availableTransitions = loan ? VALID_TRANSITIONS[loan.status as LoanStatus] : [];
 
   if (isLoading) {
     return (
@@ -162,14 +185,32 @@ export default function LoanDetail() {
 
         <CardBody>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg">
-              <dt className="text-sm font-medium text-blue-700">Remaining Balance</dt>
-              <dd className="mt-1 text-3xl font-bold text-blue-900">
-                {formatAmount(loan.remainingBalanceMicros)}
-              </dd>
-              <p className="text-sm text-blue-600 mt-1">
-                of {formatAmount(loan.principalAmountMicros)} principal
-              </p>
+            <div className="md:col-span-2 bg-blue-50 p-5 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <dt className="text-sm font-medium text-blue-700">Remaining Balance</dt>
+                  <dd className="mt-1 text-3xl font-bold text-blue-900">
+                    {formatAmount(loan.remainingBalanceMicros)}
+                  </dd>
+                  <p className="text-sm text-blue-600 mt-1">
+                    of {formatAmount(loan.principalAmountMicros)} principal
+                  </p>
+                </div>
+                {!showPaymentForm && loan.remainingBalanceMicros > 0 && (
+                  <Button onClick={() => setShowPaymentForm(true)}>
+                    Record Payment
+                  </Button>
+                )}
+              </div>
+              {showPaymentForm && (
+                <div className="mt-4 bg-white p-4 rounded-lg border border-blue-200">
+                  <PaymentForm
+                    loanId={loan.id}
+                    onCancel={() => setShowPaymentForm(false)}
+                    onSuccess={() => setShowPaymentForm(false)}
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -191,9 +232,34 @@ export default function LoanDetail() {
               <dd className="mt-1 text-lg text-gray-900">{loan.termMonths} months</dd>
             </div>
 
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Status</dt>
-              <dd className="mt-1 text-lg text-gray-900">{loan.status}</dd>
+            <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
+              <dt className="text-sm font-medium text-gray-500 mb-2">Status</dt>
+              <dd className="flex items-center gap-3 flex-wrap">
+                <StatusBadge status={loan.status} size="md" />
+                {availableTransitions.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="text-sm text-gray-500 self-center">→</span>
+                    {availableTransitions.map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => handleTransitionClick(status)}
+                        disabled={transitionMutation.isPending}
+                        className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {STATUS_LABELS[status]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {availableTransitions.length === 0 && (
+                  <span className="text-sm text-gray-500 italic">Terminal status</span>
+                )}
+              </dd>
+              {transitionMutation.error && (
+                <p className="mt-2 text-sm text-red-600">
+                  {transitionMutation.error.message}
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2">
@@ -227,59 +293,6 @@ export default function LoanDetail() {
               </dd>
             </div>
           </dl>
-
-          {/* Payment Section */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Payments</h2>
-              {!showPaymentForm && (
-                <Button onClick={() => setShowPaymentForm(true)}>
-                  Record Payment
-                </Button>
-              )}
-            </div>
-
-            {showPaymentForm && (
-              <div className="mb-6">
-                <PaymentForm
-                  loanId={loan.id}
-                  onCancel={() => setShowPaymentForm(false)}
-                  onSuccess={() => setShowPaymentForm(false)}
-                />
-              </div>
-            )}
-
-            {payments.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.map((payment) => (
-                      <tr key={payment.id}>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(payment.paidAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {formatAmount(payment.amountMicros)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm">No payments recorded yet.</p>
-            )}
-          </div>
 
           {/* Activity Timeline */}
           <div className="mt-8 border-t border-gray-200 pt-6">
@@ -345,7 +358,7 @@ export default function LoanDetail() {
             </ButtonLink>
             <Button
               variant="danger"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               isLoading={deleteMutation.isPending}
               loadingText="Deleting..."
             >
@@ -354,6 +367,32 @@ export default function LoanDetail() {
           </div>
         </CardFooter>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Loan"
+        message="Are you sure you want to delete this loan? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteModal(false)}
+        isLoading={deleteMutation.isPending}
+      />
+
+      {/* Status Transition Confirmation Modal */}
+      <ConfirmModal
+        isOpen={pendingTransition !== null}
+        title="Change Loan Status"
+        message={`Are you sure you want to change the loan status to "${pendingTransition ? STATUS_LABELS[pendingTransition] : ''}"?`}
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        variant="default"
+        onConfirm={handleTransitionConfirm}
+        onCancel={() => setPendingTransition(null)}
+        isLoading={transitionMutation.isPending}
+      />
     </div>
   );
 }

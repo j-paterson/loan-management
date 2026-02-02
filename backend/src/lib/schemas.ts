@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { MICROS_PER_DOLLAR } from './money.js';
 import {
   PRINCIPAL_MIN_MICROS,
   PRINCIPAL_MAX_MICROS,
@@ -15,6 +16,10 @@ import {
   NAME_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
   PHONE_MAX_LENGTH,
+  CREDIT_SCORE_MIN,
+  CREDIT_SCORE_MAX,
+  ANNUAL_INCOME_MAX_DOLLARS,
+  MONTHLY_DEBT_MAX_DOLLARS,
   LOAN_STATUSES,
 } from './validation.js';
 
@@ -26,6 +31,25 @@ export const createBorrowerSchema = z.object({
   name: z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH),
   email: z.string().email('Invalid email address').max(EMAIL_MAX_LENGTH),
   phone: z.string().max(PHONE_MAX_LENGTH).optional(),
+  // Credit profile fields (optional for initial creation)
+  creditScore: z.number()
+    .int('Credit score must be a whole number')
+    .min(CREDIT_SCORE_MIN, `Credit score must be at least ${CREDIT_SCORE_MIN}`)
+    .max(CREDIT_SCORE_MAX, `Credit score cannot exceed ${CREDIT_SCORE_MAX}`)
+    .optional()
+    .nullable(),
+  annualIncomeMicros: z.number()
+    .int('Income must be a whole number')
+    .min(0, 'Income cannot be negative')
+    .max(ANNUAL_INCOME_MAX_DOLLARS * MICROS_PER_DOLLAR, 'Income exceeds maximum')
+    .optional()
+    .nullable(),
+  monthlyDebtMicros: z.number()
+    .int('Debt must be a whole number')
+    .min(0, 'Debt cannot be negative')
+    .max(MONTHLY_DEBT_MAX_DOLLARS * MICROS_PER_DOLLAR, 'Debt exceeds maximum')
+    .optional()
+    .nullable(),
 });
 
 export const updateBorrowerSchema = createBorrowerSchema.partial();
