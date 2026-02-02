@@ -44,8 +44,9 @@ describe('LoanList', () => {
     render(<LoanList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('$50,000.00')).toBeInTheDocument();
-      expect(screen.getByText('$25,000.00')).toBeInTheDocument();
+      // Principal amounts may appear multiple times (once for principal, once for balance if equal)
+      expect(screen.getAllByText('$50,000.00').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('$25,000.00').length).toBeGreaterThan(0);
     });
   });
 
