@@ -11,6 +11,9 @@ import { formatAmount, formatRate } from '../utils/format';
 import type { EventType, LoanStatus } from '../types/loan';
 import { STATUS_LABELS } from '../types/loan';
 
+// Statuses where payments can be recorded
+const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT'];
+
 // Event type icons and colors
 function EventIcon({ eventType }: { eventType: EventType }) {
   const styles: Record<EventType, { bg: string; icon: string }> = {
@@ -205,9 +208,20 @@ export default function LoanDetail() {
                   </p>
                 </div>
                 {!showPaymentForm && loan.remainingBalanceMicros > 0 && (
-                  <Button onClick={() => setShowPaymentForm(true)}>
-                    Record Payment
-                  </Button>
+                  <div className="relative group">
+                    <Button
+                      onClick={() => setShowPaymentForm(true)}
+                      disabled={!PAYMENT_ALLOWED_STATUSES.includes(loan.status)}
+                    >
+                      Record Payment
+                    </Button>
+                    {!PAYMENT_ALLOWED_STATUSES.includes(loan.status) && (
+                      <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                        Payments can only be recorded for active loans
+                        <div className="absolute top-full right-4 border-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               {showPaymentForm && (
