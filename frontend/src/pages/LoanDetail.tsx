@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { loansApi } from '../api/loans';
+import type { TransitionOption } from '../api/loans';
 import { borrowersApi } from '../api/borrowers';
 import { eventsApi } from '../api/events';
 import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm, Breadcrumbs, ConfirmModal } from '../components';
 import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
 import type { EventType, LoanStatus } from '../types/loan';
-import { VALID_TRANSITIONS, STATUS_LABELS } from '../types/loan';
+import { STATUS_LABELS } from '../types/loan';
 
 // Event type icons and colors
 function EventIcon({ eventType }: { eventType: EventType }) {
@@ -81,6 +82,12 @@ export default function LoanDetail() {
     enabled: !!id,
   });
 
+  const { data: transitionsData } = useQuery({
+    queryKey: ['transitions', id],
+    queryFn: () => loansApi.getAvailableTransitions(id!),
+    enabled: !!id,
+  });
+
   // Fetch borrower data if we came from a borrower page
   const { data: sourceBorrower } = useQuery({
     queryKey: ['borrowers', borrowerId],
@@ -117,6 +124,7 @@ export default function LoanDetail() {
       setPendingTransition(null);
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
       queryClient.invalidateQueries({ queryKey: ['events', id] });
+      queryClient.invalidateQueries({ queryKey: ['transitions', id] });
     },
     onError: () => {
       // Keep modal open on error so user can see the error or retry
@@ -141,8 +149,8 @@ export default function LoanDetail() {
     }
   };
 
-  // Get available transitions for current status
-  const availableTransitions = loan ? VALID_TRANSITIONS[loan.status as LoanStatus] : [];
+  // Get transitions from API (includes guard check results)
+  const transitions: TransitionOption[] = transitionsData?.transitions || [];
 
   if (isLoading) {
     return (
@@ -235,28 +243,41 @@ export default function LoanDetail() {
             <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center gap-4 flex-wrap">
                 <dt className="text-sm font-medium text-gray-500">Status</dt>
-                <dd className="flex items-center gap-3 flex-wrap">
+                <dd className="flex items-center gap-3">
                   <StatusBadge status={loan.status} size="md" />
-                  {availableTransitions.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      <span className="text-sm text-gray-500 self-center">→</span>
-                      {availableTransitions.map((status) => (
-                        <button
-                          key={status}
-                          onClick={() => handleTransitionClick(status)}
-                          disabled={transitionMutation.isPending}
-                          className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {STATUS_LABELS[status]}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {availableTransitions.length === 0 && (
+                  {transitions.length === 0 && (
                     <span className="text-sm text-gray-500 italic">Terminal status</span>
                   )}
                 </dd>
               </div>
+              {transitions.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Available Transitions</span>
+                  <div className="flex gap-2 flex-wrap">
+                    {transitions.map((transition) => (
+                      <div key={transition.toStatus} className="relative group">
+                        <button
+                          onClick={() => transition.allowed && handleTransitionClick(transition.toStatus)}
+                          disabled={!transition.allowed || transitionMutation.isPending}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                            transition.allowed
+                              ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-300'
+                              : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                          } disabled:opacity-50`}
+                        >
+                          {STATUS_LABELS[transition.toStatus]}
+                        </button>
+                        {!transition.allowed && transition.reason && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                            {transition.reason}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {transitionMutation.error && (
                 <p className="mt-2 text-sm text-red-600">
                   {transitionMutation.error.message}
