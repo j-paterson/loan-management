@@ -52,7 +52,7 @@ The schema is normalized to 3NF with a few intentional denormalizations for prac
 
 | Value | Tradeoff |
 |-------|----------|
-| `remainingBalanceMicros` | Computed by summing payments on each request. Always accurate, no sync issues. For high-volume production, would denormalize onto `loans` table and update atomically with payments. |
+| `remainingBalanceMicros` | Computed by summing payments on each request. (For high-volume production, would denormalize onto `loans` table and update atomically with payments) |
 | DTI ratio | Calculated from borrower income/debt at transition time. Credit profiles are point-in-time; a production system might store historical snapshots. |
 
 ### Service Layer + Transaction Consistency                                            
