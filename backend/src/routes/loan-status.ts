@@ -1,14 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { eq, sum } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { loans, borrowers, payments, type LoanStatus } from '../db/schema.js';
-import {
-  transitionLoanStatus,
-  VALID_TRANSITIONS,
-  getValidNextStatuses,
-  checkTransitionGuard,
-} from '../lib/state-machine/index.js';
+import { statusService } from '../services/index.js';
+import { VALID_TRANSITIONS } from '../lib/state-machine/index.js';
 import { uuidParamSchema } from '../lib/schemas.js';
 
 const router = Router();
@@ -67,21 +60,18 @@ router.post(
       const { toStatus, reason, metadata } = bodyResult.data;
 
       // Perform the transition
-      const result = await transitionLoanStatus({
-        loanId: req.params.loanId,
-        toStatus,
-        changedBy: 'user', // In a real app, this would be the authenticated user
-        reason,
-        metadata,
-      });
+      const result = await statusService.transition(
+        req.params.loanId,
+        { toStatus, reason, metadata },
+        { actorId: 'user' }
+      );
 
       if (!result.success) {
-        return res.status(400).json({
-          error: { message: result.error },
-        });
+        const status = result.code === 'NOT_FOUND' ? 404 : 400;
+        return res.status(status).json({ error: { message: result.error } });
       }
 
-      res.json({ data: result.loan });
+      res.json({ data: result.data });
     } catch (err) {
       next(err);
     }
@@ -102,51 +92,14 @@ router.get(
         return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
       }
 
-      const loanId = req.params.loanId;
+      const result = await statusService.getAvailableTransitions(req.params.loanId);
 
-      // Fetch the loan
-      const [loan] = await db.select().from(loans).where(eq(loans.id, loanId));
-      if (!loan) {
-        return res.status(404).json({ error: { message: 'Loan not found' } });
+      if (!result.success) {
+        const status = result.code === 'NOT_FOUND' ? 404 : 400;
+        return res.status(status).json({ error: { message: result.error } });
       }
 
-      // Fetch borrower
-      const [borrower] = await db.select().from(borrowers).where(eq(borrowers.id, loan.borrowerId));
-      if (!borrower) {
-        return res.status(404).json({ error: { message: 'Borrower not found' } });
-      }
-
-      // Calculate remaining balance
-      const [paymentSum] = await db
-        .select({ total: sum(payments.amountMicros) })
-        .from(payments)
-        .where(eq(payments.loanId, loanId));
-      const totalPayments = Number(paymentSum?.total || 0);
-      const remainingBalanceMicros = loan.principalAmountMicros - totalPayments;
-
-      // Get valid transitions for current status
-      const possibleTransitions = getValidNextStatuses(loan.status as LoanStatus);
-
-      // Check guards for each possible transition
-      const transitions = possibleTransitions.map((toStatus) => {
-        const guardResult = checkTransitionGuard(
-          loan.status as LoanStatus,
-          toStatus,
-          { loan, borrower, remainingBalanceMicros }
-        );
-        return {
-          toStatus,
-          allowed: guardResult.allowed,
-          reason: guardResult.reason || null,
-        };
-      });
-
-      res.json({
-        data: {
-          currentStatus: loan.status,
-          transitions,
-        },
-      });
+      res.json({ data: result.data });
     } catch (err) {
       next(err);
     }
