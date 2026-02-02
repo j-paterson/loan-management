@@ -58,6 +58,12 @@ const sampleLoans = [
 async function main() {
   console.log('Seeding database...');
 
+  // Clear existing data first (order matters due to foreign keys)
+  await db.delete(payments);
+  await db.delete(loans);
+  await db.delete(borrowers);
+  console.log('Cleared existing data');
+
   // Insert borrowers first
   const insertedBorrowers = await db.insert(borrowers).values(sampleBorrowers).returning();
   console.log(`Inserted ${insertedBorrowers.length} sample borrowers`);

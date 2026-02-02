@@ -184,30 +184,30 @@ export function BorrowerSearch({
         onFocus={() => setIsOpen(true)} onKeyDown={handleKeyDown}
         className={inputStyles(!!error)} placeholder="Search borrowers by name or email..." disabled={disabled} />
       {isOpen && !disabled && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
           {filteredBorrowers.length > 0 ? (
             <>
               {filteredBorrowers.map((borrower) => (
                 <button key={borrower.id} type="button" onClick={() => handleSelectBorrower(borrower)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                  <p className="font-medium text-gray-900">{borrower.name}</p>
-                  <p className="text-sm text-gray-500">{borrower.email}</p>
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center justify-between">
+                  <span className="font-medium text-gray-900 truncate">{borrower.name}</span>
+                  <span className="text-sm text-gray-500 truncate ml-2">{borrower.email}</span>
                 </button>
               ))}
               {searchQuery.trim() && !hasExactMatch && (
                 <button type="button" onClick={handleStartCreate}
-                  className="w-full px-4 py-3 text-left hover:bg-blue-50 text-blue-600 border-t border-gray-200">
-                  + Create "{searchQuery.trim()}" as new borrower
+                  className="w-full px-3 py-2 text-left hover:bg-blue-50 text-blue-600 text-sm border-t border-gray-200">
+                  + Create "{searchQuery.trim()}"
                 </button>
               )}
             </>
           ) : searchQuery.trim() ? (
             <button type="button" onClick={handleStartCreate}
-              className="w-full px-4 py-3 text-left hover:bg-blue-50 text-blue-600">
-              + Create "{searchQuery.trim()}" as new borrower
+              className="w-full px-3 py-2 text-left hover:bg-blue-50 text-blue-600 text-sm">
+              + Create "{searchQuery.trim()}"
             </button>
           ) : (
-            <p className="px-4 py-3 text-gray-500 text-sm">Start typing to search or create a borrower</p>
+            <p className="px-3 py-2 text-gray-500 text-sm">Type to search or create</p>
           )}
         </div>
       )}
