@@ -1,0 +1,13 @@
+{
+  "name": "@loan-management/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts",
+    "./constants": "./constants.ts",
+    "./validation": "./validation.ts"
+  }
+}

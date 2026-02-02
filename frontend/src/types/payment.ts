@@ -1,15 +1,16 @@
-export interface Payment {
-  id: string;
-  loanId: string;
-  amountMicros: number;
-  paidAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
+/**
+ * Payment Types
+ *
+ * Re-exports from shared package for backwards compatibility.
+ * New code should import directly from @loan-management/shared.
+ */
 
+export type { Payment } from '@loan-management/shared';
+
+// Input types specific to the API layer
 export interface CreatePaymentInput {
   amountMicros: number;
-  paidAt: string;
+  paidAt?: string;
 }
 
 export interface UpdatePaymentInput {

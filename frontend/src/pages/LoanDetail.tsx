@@ -5,73 +5,34 @@ import { loansApi } from '../api/loans';
 import type { TransitionOption } from '../api/loans';
 import { borrowersApi } from '../api/borrowers';
 import { eventsApi } from '../api/events';
-import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm, Breadcrumbs, ConfirmModal } from '../components';
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
+  Button,
+  ButtonLink,
+  Breadcrumbs,
+  ConfirmModal,
+  LoanBalanceCard,
+  LoanStatusTransition,
+  BorrowerCard,
+  ActivityTimeline,
+} from '../components';
 import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
-import type { EventType, LoanStatus } from '../types/loan';
-import { STATUS_LABELS } from '../types/loan';
-
-// Statuses where payments can be recorded
-const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT', 'CHARGED_OFF'];
-
-// Event type icons and colors
-function EventIcon({ eventType }: { eventType: EventType }) {
-  const styles: Record<EventType, { bg: string; icon: string }> = {
-    LOAN_CREATED: { bg: 'bg-blue-500', icon: '+' },
-    STATUS_CHANGE: { bg: 'bg-purple-500', icon: '→' },
-    LOAN_EDITED: { bg: 'bg-yellow-500', icon: '✎' },
-    PAYMENT_RECEIVED: { bg: 'bg-green-500', icon: '$' },
-  };
-
-  const style = styles[eventType] || { bg: 'bg-gray-400', icon: '?' };
-
-  return (
-    <span className={`flex h-8 w-8 items-center justify-center rounded-full ${style.bg} ring-8 ring-white`}>
-      <span className="text-white text-sm font-medium">{style.icon}</span>
-    </span>
-  );
-}
-
-// Format field names for display
-function formatFieldName(field: string): string {
-  const fieldMap: Record<string, string> = {
-    principalAmountMicros: 'Principal',
-    interestRateBps: 'Interest rate',
-    termMonths: 'Term',
-    borrowerId: 'Borrower',
-    status: 'Status',
-  };
-  return fieldMap[field] || field;
-}
-
-// Format field values for display
-function formatFieldValue(field: string, value: unknown): string {
-  if (value === null || value === undefined) return '—';
-
-  switch (field) {
-    case 'principalAmountMicros':
-      return formatAmount(value as number);
-    case 'interestRateBps':
-      return formatRate(value as number);
-    case 'termMonths':
-      return `${value} months`;
-    default:
-      return String(value);
-  }
-}
+import type { LoanStatus } from '@loan-management/shared';
 
 export default function LoanDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [pendingTransition, setPendingTransition] = useState<LoanStatus | null>(null);
 
   // Check if we navigated from a borrower page
   const fromBorrower = searchParams.get('from') === 'borrower';
-  const borrowerId = searchParams.get('borrowerId');
+  const borrowerIdParam = searchParams.get('borrowerId');
 
   const { data: loan, isLoading, error } = useQuery({
     queryKey: ['loans', id],
@@ -93,9 +54,9 @@ export default function LoanDetail() {
 
   // Fetch borrower data if we came from a borrower page
   const { data: sourceBorrower } = useQuery({
-    queryKey: ['borrowers', borrowerId],
-    queryFn: () => borrowersApi.getById(borrowerId!),
-    enabled: fromBorrower && !!borrowerId,
+    queryKey: ['borrowers', borrowerIdParam],
+    queryFn: () => borrowersApi.getById(borrowerIdParam!),
+    enabled: fromBorrower && !!borrowerIdParam,
   });
 
   // Build breadcrumbs based on navigation context
@@ -103,7 +64,7 @@ export default function LoanDetail() {
     if (fromBorrower && sourceBorrower) {
       return [
         { label: 'Borrowers', to: '/borrowers' },
-        { label: sourceBorrower.name, to: `/borrowers/${borrowerId}` },
+        { label: sourceBorrower.name, to: `/borrowers/${borrowerIdParam}` },
         { label: 'Loan Details' },
       ];
     }
@@ -111,7 +72,7 @@ export default function LoanDetail() {
       { label: 'Loans', to: '/loans' },
       { label: 'Loan Details' },
     ];
-  }, [fromBorrower, sourceBorrower, borrowerId]);
+  }, [fromBorrower, sourceBorrower, borrowerIdParam]);
 
   const deleteMutation = useMutation({
     mutationFn: () => loansApi.delete(id!),
@@ -120,37 +81,6 @@ export default function LoanDetail() {
       navigate('/loans');
     },
   });
-
-  const transitionMutation = useMutation({
-    mutationFn: (toStatus: LoanStatus) => loansApi.transition(id!, { toStatus }),
-    onSuccess: () => {
-      setPendingTransition(null);
-      queryClient.invalidateQueries({ queryKey: ['loans', id] });
-      queryClient.invalidateQueries({ queryKey: ['events', id] });
-      queryClient.invalidateQueries({ queryKey: ['transitions', id] });
-    },
-    onError: () => {
-      // Keep modal open on error so user can see the error or retry
-    },
-  });
-
-  const handleDeleteClick = () => {
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    deleteMutation.mutate();
-  };
-
-  const handleTransitionClick = (toStatus: LoanStatus) => {
-    setPendingTransition(toStatus);
-  };
-
-  const handleTransitionConfirm = () => {
-    if (pendingTransition) {
-      transitionMutation.mutate(pendingTransition);
-    }
-  };
 
   // Get transitions from API (includes guard check results)
   const transitions: TransitionOption[] = transitionsData?.transitions || [];
@@ -196,44 +126,12 @@ export default function LoanDetail() {
 
         <CardBody>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2 bg-blue-50 p-5 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <dt className="text-sm font-medium text-blue-700">Remaining Balance</dt>
-                  <dd className="mt-1 text-3xl font-bold text-blue-900">
-                    {formatAmount(loan.remainingBalanceMicros)}
-                  </dd>
-                  <p className="text-sm text-blue-600 mt-1">
-                    of {formatAmount(loan.principalAmountMicros)} principal
-                  </p>
-                </div>
-                {!showPaymentForm && loan.remainingBalanceMicros > 0 && (
-                  <div className="relative group">
-                    <Button
-                      onClick={() => setShowPaymentForm(true)}
-                      disabled={!PAYMENT_ALLOWED_STATUSES.includes(loan.status)}
-                    >
-                      Record Payment
-                    </Button>
-                    {!PAYMENT_ALLOWED_STATUSES.includes(loan.status) && (
-                      <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                        Payments can only be recorded for active loans
-                        <div className="absolute top-full right-4 border-4 border-transparent border-t-gray-900"></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              {showPaymentForm && (
-                <div className="mt-4 bg-white p-4 rounded-lg border border-blue-200">
-                  <PaymentForm
-                    loanId={loan.id}
-                    onCancel={() => setShowPaymentForm(false)}
-                    onSuccess={() => setShowPaymentForm(false)}
-                  />
-                </div>
-              )}
-            </div>
+            <LoanBalanceCard
+              loanId={loan.id}
+              remainingBalanceMicros={loan.remainingBalanceMicros}
+              principalAmountMicros={loan.principalAmountMicros}
+              status={loan.status as LoanStatus}
+            />
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Principal Amount</dt>
@@ -254,142 +152,19 @@ export default function LoanDetail() {
               <dd className="mt-1 text-base text-gray-900">{loan.termMonths} months</dd>
             </div>
 
-            <div className="md:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Status</dt>
-              <dd className="mt-1 flex items-center gap-3 flex-wrap">
-                <StatusBadge status={loan.status} size="md" />
-                {transitions.length > 0 && (
-                  <>
-                    <span className="text-gray-400 text-lg">→</span>
-                    {transitions.map((transition) => (
-                      <div key={transition.toStatus} className="relative group">
-                        <button
-                          onClick={() => transition.allowed && handleTransitionClick(transition.toStatus)}
-                          disabled={!transition.allowed || transitionMutation.isPending}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-                            transition.allowed
-                              ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-300'
-                              : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                          } disabled:opacity-50`}
-                        >
-                          {STATUS_LABELS[transition.toStatus]}
-                        </button>
-                        {!transition.allowed && transition.reason && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                            {transition.reason}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </>
-                )}
-                {transitions.length === 0 && (
-                  <span className="text-sm text-gray-500 italic">Terminal status</span>
-                )}
-              </dd>
-              {transitionMutation.error && (
-                <p className="mt-2 text-sm text-red-600">
-                  {transitionMutation.error.message}
-                </p>
-              )}
-            </div>
+            <LoanStatusTransition
+              loanId={loan.id}
+              currentStatus={loan.status as LoanStatus}
+              transitions={transitions}
+            />
 
-            <div className="md:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Borrower</dt>
-              <dd className="mt-1 text-base text-gray-900">
-                {loan.borrower ? (
-                  <Link
-                    to={`/borrowers/${loan.borrowerId}`}
-                    className="block p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium text-gray-900">{loan.borrower.name}</span>
-                        <span className="text-sm text-gray-600">{loan.borrower.email}</span>
-                        {loan.borrower.phone && (
-                          <span className="text-sm text-gray-600">{loan.borrower.phone}</span>
-                        )}
-                      </div>
-                      <span className="text-blue-600 text-sm font-medium">View Profile →</span>
-                    </div>
-                  </Link>
-                ) : (
-                  <span className="text-gray-400 italic">No borrower assigned</span>
-                )}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-sm text-gray-700">
-                {new Date(loan.createdAt).toLocaleString()}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-sm text-gray-700">
-                {new Date(loan.updatedAt).toLocaleString()}
-              </dd>
-            </div>
+            <BorrowerCard
+              borrower={loan.borrower}
+              borrowerId={loan.borrowerId}
+            />
           </dl>
 
-          {/* Activity Timeline */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Activity</h2>
-            {events.length > 0 ? (
-              <div className="flow-root">
-                <ul className="-mb-8">
-                  {events.map((event, idx) => (
-                    <li key={event.id}>
-                      <div className="relative pb-8">
-                        {idx !== events.length - 1 && (
-                          <span
-                            className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <div className="relative flex space-x-3">
-                          <div>
-                            <EventIcon eventType={event.eventType} />
-                          </div>
-                          <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                            <div>
-                              <p className="text-sm text-gray-900">
-                                {event.description}
-                                {event.eventType === 'PAYMENT_RECEIVED' && event.paymentAmountMicros && (
-                                  <span className="font-medium text-green-700">
-                                    {' '}({formatAmount(event.paymentAmountMicros)})
-                                  </span>
-                                )}
-                              </p>
-                              {event.changes && Object.keys(event.changes).length > 0 && (
-                                <div className="mt-1 text-xs text-gray-500">
-                                  {Object.entries(event.changes).map(([field, change]) => (
-                                    <div key={field}>
-                                      {formatFieldName(field)}: {formatFieldValue(field, change.from)} → {formatFieldValue(field, change.to)}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                              <time dateTime={event.occurredAt}>
-                                {new Date(event.occurredAt).toLocaleString()}
-                              </time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm">No activity recorded yet.</p>
-            )}
-          </div>
+          <ActivityTimeline events={events} />
         </CardBody>
 
         <CardFooter>
@@ -399,7 +174,7 @@ export default function LoanDetail() {
             </ButtonLink>
             <Button
               variant="danger"
-              onClick={handleDeleteClick}
+              onClick={() => setShowDeleteModal(true)}
               isLoading={deleteMutation.isPending}
               loadingText="Deleting..."
             >
@@ -409,7 +184,6 @@ export default function LoanDetail() {
         </CardFooter>
       </Card>
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={showDeleteModal}
         title="Delete Loan"
@@ -417,22 +191,9 @@ export default function LoanDetail() {
         confirmLabel="Delete"
         cancelLabel="Cancel"
         variant="danger"
-        onConfirm={handleDeleteConfirm}
+        onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setShowDeleteModal(false)}
         isLoading={deleteMutation.isPending}
-      />
-
-      {/* Status Transition Confirmation Modal */}
-      <ConfirmModal
-        isOpen={pendingTransition !== null}
-        title="Change Loan Status"
-        message={`Are you sure you want to change the loan status to "${pendingTransition ? STATUS_LABELS[pendingTransition] : ''}"?`}
-        confirmLabel="Confirm"
-        cancelLabel="Cancel"
-        variant="default"
-        onConfirm={handleTransitionConfirm}
-        onCancel={() => setPendingTransition(null)}
-        isLoading={transitionMutation.isPending}
       />
     </div>
   );

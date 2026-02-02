@@ -1,11 +1,9 @@
 import { eq, isNull, and, sum } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { payments, loans, type Payment, type LoanStatus } from '../db/schema.js';
+import { PAYMENT_ALLOWED_STATUSES } from '@loan-management/shared';
 import { recordPaymentReceived } from './event.service.js';
 import { success, fail, type ServiceResult, type ActorContext } from './types.js';
-
-// Statuses that allow payments to be recorded
-const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT', 'CHARGED_OFF'];
 
 export interface CreatePaymentInput {
   amountMicros: number;

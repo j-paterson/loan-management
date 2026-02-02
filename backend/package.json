@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@dinero.js/currencies": "^2.0.0-alpha.15",
+    "@loan-management/shared": "file:../shared",
     "cors": "^2.8.6",
     "dinero.js": "^2.0.0-alpha.15",
     "dotenv": "^17.2.3",
