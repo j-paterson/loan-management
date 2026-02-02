@@ -54,11 +54,12 @@ Copy `backend/.env.example` to `backend/.env` for local development.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  routes/                   lib/                     db/                     │
 │  ├── loans.ts             ├── money.ts             ├── schema.ts           │
-│  └── borrowers.ts         ├── validation.ts        ├── index.ts            │
-│       │                   └── schemas.ts           └── seed.ts             │
-│       │                         │                                          │
-│       └─────────────────────────┘                                          │
-│              (shared Zod schemas)                                           │
+│  ├── borrowers.ts         ├── schemas.ts           ├── index.ts            │
+│  ├── payments.ts          ├── state-machine/       └── seed.ts             │
+│  ├── loan-status.ts       │   ├── transitions.ts                           │
+│  └── events.ts            │   └── guards.ts                                │
+│                           └── events/                                       │
+│                               └── index.ts                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ Drizzle ORM
@@ -87,7 +88,9 @@ Copy `backend/.env.example` to `backend/.env` for local development.
 | **Hooks** | Reusable form state (`useForm`) and mutation logic (`useResourceMutation`) |
 | **API Client** | HTTP fetch wrapper, response parsing, type-safe API calls |
 | **Lib** | Shared utilities: money conversion, validation constants, Zod schemas |
-| **Routes** | Express handlers: business logic, response formatting |
+| **Routes** | Express handlers: validation, delegation, response formatting |
+| **State Machine** | Loan status transitions with guards and validation |
+| **Events** | Unified audit trail for loan activities |
 | **DB** | Drizzle schema, migrations, seed data |
 
 ### Data Flow
@@ -127,6 +130,27 @@ Copy `backend/.env.example` to `backend/.env` for local development.
 - Validation errors return 400 with Zod error details
 - All list endpoints exclude soft-deleted records
 
+### Transaction Consistency
+
+Operations that modify multiple tables use database transactions to ensure atomicity. For example, when creating a loan:
+
+```typescript
+await db.transaction(async (tx) => {
+  // 1. Create borrower if inline
+  const [borrower] = await tx.insert(borrowers).values({...}).returning();
+
+  // 2. Insert loan
+  const [loan] = await tx.insert(loans).values({...}).returning();
+
+  // 3. Record event in same transaction
+  await recordLoanCreated(loan.id, loan.status, 'user', tx);
+
+  return { loan, borrower };
+});
+```
+
+This ensures that if any step fails, the entire operation rolls back—no orphaned records or inconsistent state. The event recording functions accept an optional transaction context (`tx`) parameter to participate in the same transaction.
+
 ### Input Validation & Error Handling
 
 All API inputs are validated server-side with Zod schemas. The API returns appropriate status codes and clear error messages:
@@ -154,26 +178,25 @@ All API inputs are validated server-side with Zod schemas. The API returns appro
 1. **Single currency (USD)** — All monetary amounts are in US dollars
 2. **Simple interest** — No compound interest calculations; rate stored for display/reference
 3. **No authentication** — Single-user context; production would add JWT/session auth
-4. **Flexible status transitions** — Any status change allowed; production would enforce valid state machine
-5. **Term in months** — Industry standard granularity for loan terms
+4. **Term in months** — Industry standard granularity for loan terms
 
 ## What I'd Improve
 
 Given more time I would implement:
 
-1. **Payment tracking** — Record payments, calculate remaining balance, generate amortization schedules
-2. **Activity log** — Audit trail for all loan/borrower changes
-3. **Authentication & authorization** — JWT auth with role-based access control
-4. **Pagination & filtering** — Handle large datasets with cursor pagination, filter by status/date/amount
-5. **Borrower management UI** — Dedicated pages for borrowers to pay/access their loan information
+1. **Authentication & authorization** — JWT auth with role-based access control
+2. **Pagination & filtering** — Handle large datasets with cursor pagination, filter by status/date/amount
+3. **Amortization schedules** — Generate payment schedules based on loan terms
+4. **Background jobs** — Automated status transitions (e.g., mark loans delinquent after 30 days)
+5. **Service layer** — As the application grows, extract business logic into a dedicated service layer for better testability, reusability across entry points (API, CLI, background jobs), and clearer separation of concerns
 
 ## Testing
 
 ```bash
-# Backend (38 tests)
+# Backend (53 tests)
 cd backend && npm test
 
-# Frontend (41 tests)
+# Frontend
 cd frontend && npm test
 ```
 

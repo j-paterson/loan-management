@@ -7,6 +7,7 @@ import {
   createPaymentSchema,
   updatePaymentSchema,
 } from '../lib/schemas.js';
+import { recordPaymentReceived } from '../lib/events/index.js';
 
 interface LoanIdParams {
   loanId: string;
@@ -95,16 +96,30 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
       });
     }
 
-    const result = await db
-      .insert(payments)
-      .values({
-        loanId: req.params.loanId,
-        amountMicros: parsed.data.amountMicros,
-        paidAt: new Date(parsed.data.paidAt),
-      })
-      .returning();
+    // Wrap payment creation + event recording in transaction
+    const payment = await db.transaction(async (tx) => {
+      const [payment] = await tx
+        .insert(payments)
+        .values({
+          loanId: req.params.loanId,
+          amountMicros: parsed.data.amountMicros,
+          paidAt: new Date(parsed.data.paidAt),
+        })
+        .returning();
 
-    res.status(201).json({ data: result[0] });
+      // Record payment event in same transaction
+      await recordPaymentReceived(
+        req.params.loanId,
+        payment.id,
+        payment.amountMicros,
+        'user',
+        tx
+      );
+
+      return payment;
+    });
+
+    res.status(201).json({ data: payment });
   } catch (err) {
     next(err);
   }

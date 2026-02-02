@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { loans, borrowers, payments, loanStatusHistory, type LoanStatus } from './schema.js';
+import { loans, borrowers, payments, loanEvents, type LoanStatus } from './schema.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -100,8 +100,8 @@ async function main() {
   console.log('Seeding database...');
 
   // Clear existing data first (order matters due to foreign keys)
+  await db.delete(loanEvents);
   await db.delete(payments);
-  await db.delete(loanStatusHistory);
   await db.delete(loans);
   await db.delete(borrowers);
   console.log('Cleared existing data');
@@ -119,19 +119,6 @@ async function main() {
   const insertedLoans = await db.insert(loans).values(loansWithBorrowers).returning();
   console.log(`Inserted ${insertedLoans.length} sample loans`);
 
-  // Create status history entries for each loan
-  const statusHistoryEntries = insertedLoans.map(loan => ({
-    loanId: loan.id,
-    fromStatus: null,
-    toStatus: loan.status as LoanStatus,
-    changedAt: loan.createdAt,
-    changedBy: 'seed',
-    reason: 'Initial loan creation',
-  }));
-
-  await db.insert(loanStatusHistory).values(statusHistoryEntries);
-  console.log(`Inserted ${statusHistoryEntries.length} status history entries`);
-
   // Insert sample payments for ACTIVE loans
   // Amounts in micro-units: $5,000 = 50000000
   const samplePayments = [
@@ -147,8 +134,35 @@ async function main() {
     { loanId: insertedLoans[4].id, amountMicros: 100000000, paidAt: new Date('2024-02-01') }, // $10,000
   ];
 
-  await db.insert(payments).values(samplePayments);
-  console.log(`Inserted ${samplePayments.length} sample payments`);
+  const insertedPayments = await db.insert(payments).values(samplePayments).returning();
+  console.log(`Inserted ${insertedPayments.length} sample payments`);
+
+  // Create loan events
+  const loanEventEntries = insertedLoans.flatMap(loan => [
+    // Loan created event
+    {
+      loanId: loan.id,
+      eventType: 'LOAN_CREATED' as const,
+      occurredAt: loan.createdAt,
+      actorId: 'seed',
+      toStatus: loan.status as LoanStatus,
+      description: `Loan created with status ${loan.status}`,
+    },
+  ]);
+
+  // Add payment events
+  const paymentEventEntries = insertedPayments.map(payment => ({
+    loanId: payment.loanId,
+    eventType: 'PAYMENT_RECEIVED' as const,
+    occurredAt: payment.paidAt,
+    actorId: 'seed',
+    paymentId: payment.id,
+    paymentAmountMicros: payment.amountMicros,
+    description: `Payment of $${(payment.amountMicros / 10000).toLocaleString()} received`,
+  }));
+
+  await db.insert(loanEvents).values([...loanEventEntries, ...paymentEventEntries]);
+  console.log(`Inserted ${loanEventEntries.length + paymentEventEntries.length} loan events`);
 
   await client.end();
   process.exit(0);
