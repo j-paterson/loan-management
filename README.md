@@ -82,11 +82,11 @@ This creates sample borrowers and loans for testing.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  routes/                   lib/                     db/                     │
 │  ├── loans.ts             ├── money.ts             ├── schema.ts           │
-│  └── borrowers.ts         └── validation.ts        ├── index.ts            │
-│       │                         │                  └── seed.ts             │
+│  └── borrowers.ts         ├── validation.ts        ├── index.ts            │
+│       │                   └── schemas.ts           └── seed.ts             │
 │       │                         │                                          │
-│       └── Zod schemas ──────────┘                                          │
-│           (validation)                                                      │
+│       └─────────────────────────┘                                          │
+│              (shared Zod schemas)                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ Drizzle ORM
@@ -114,8 +114,8 @@ This creates sample borrowers and loans for testing.
 | **Pages** | Route components, form handling, data fetching via React Query |
 | **Hooks** | Reusable form state (`useForm`) and mutation logic (`useResourceMutation`) |
 | **API Client** | HTTP fetch wrapper, response parsing, type-safe API calls |
-| **Lib** | Shared utilities: money conversion, validation constants |
-| **Routes** | Express handlers: validation, business logic, response formatting |
+| **Lib** | Shared utilities: money conversion, validation constants, Zod schemas |
+| **Routes** | Express handlers: business logic, response formatting |
 | **DB** | Drizzle schema, migrations, seed data |
 
 ### Data Flow
@@ -199,7 +199,7 @@ Given more time:
 ## Testing
 
 ```bash
-# Backend (42 tests)
+# Backend (45 tests)
 cd backend && npm test
 
 # Frontend (41 tests)

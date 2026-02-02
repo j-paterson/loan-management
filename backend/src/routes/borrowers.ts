@@ -1,26 +1,18 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, and } from 'drizzle-orm';
-import { z } from 'zod';
 import { db } from '../db/index.js';
 import { borrowers } from '../db/schema.js';
-import { NAME_MAX_LENGTH, EMAIL_MAX_LENGTH, PHONE_MAX_LENGTH } from '../lib/validation.js';
+import {
+  uuidParamSchema,
+  createBorrowerSchema,
+  updateBorrowerSchema,
+} from '../lib/schemas.js';
 
 interface IdParams {
   id: string;
 }
 
 const router = Router();
-
-// UUID validation for route params
-const uuidParamSchema = z.string().uuid('Invalid ID format');
-
-const createBorrowerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH),
-  email: z.string().email('Invalid email address').max(EMAIL_MAX_LENGTH),
-  phone: z.string().max(PHONE_MAX_LENGTH).optional(),
-});
-
-const updateBorrowerSchema = createBorrowerSchema.partial();
 
 // GET /borrowers - List all borrowers
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
