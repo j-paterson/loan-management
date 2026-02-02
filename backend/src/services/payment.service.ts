@@ -151,6 +151,42 @@ export async function update(
     return fail('Payment not found', 'NOT_FOUND');
   }
 
+  const existingPayment = existing[0];
+
+  // If changing amount, validate against remaining balance
+  if (input.amountMicros !== undefined && input.amountMicros !== existingPayment.amountMicros) {
+    // Get loan principal
+    const [loan] = await db
+      .select()
+      .from(loans)
+      .where(eq(loans.id, loanId));
+
+    if (!loan) {
+      return fail('Loan not found', 'NOT_FOUND');
+    }
+
+    // Calculate remaining balance excluding this payment
+    const [paymentSum] = await db
+      .select({ total: sum(payments.amountMicros) })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.loanId, loanId),
+          isNull(payments.deletedAt)
+        )
+      );
+
+    const totalPaid = Number(paymentSum?.total || 0);
+    const remainingBalanceExcludingThis = loan.principalAmountMicros - totalPaid + existingPayment.amountMicros;
+
+    if (input.amountMicros > remainingBalanceExcludingThis) {
+      return fail(
+        `Payment amount exceeds remaining balance. Maximum payment allowed: ${remainingBalanceExcludingThis} micros.`,
+        'VALIDATION'
+      );
+    }
+  }
+
   const updates: Record<string, unknown> = { updatedAt: new Date() };
 
   if (input.amountMicros !== undefined) {
