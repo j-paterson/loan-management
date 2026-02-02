@@ -330,8 +330,7 @@ Given more time I would implement:
 1. **Authentication & authorization** — JWT auth with role-based access control
 2. **Pagination & filtering** — Handle large datasets with cursor pagination
 3. **Amortization schedules** — Generate payment schedules based on loan terms
-4. **Background jobs** — Automated status transitions (e.g., mark loans delinquent after 30 days)
-5. **Service layer** — As the application grows, extract business logic into a dedicated service layer for better testability and reusability
+4. **Timed Background jobs** — Automated status transitions (e.g., mark loans delinquent after 30 days)
 
 ## Testing
 
