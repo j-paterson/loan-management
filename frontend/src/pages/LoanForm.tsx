@@ -87,6 +87,7 @@ export default function LoanForm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['events', id] });
+      queryClient.invalidateQueries({ queryKey: ['transitions', id] });
       navigate(`/loans/${id}`);
     },
   });
