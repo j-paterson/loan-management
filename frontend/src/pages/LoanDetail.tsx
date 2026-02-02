@@ -12,7 +12,7 @@ import type { EventType, LoanStatus } from '../types/loan';
 import { STATUS_LABELS } from '../types/loan';
 
 // Statuses where payments can be recorded
-const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT'];
+const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT', 'CHARGED_OFF'];
 
 // Event type icons and colors
 function EventIcon({ eventType }: { eventType: EventType }) {
