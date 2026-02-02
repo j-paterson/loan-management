@@ -1,17 +1,13 @@
-export interface Borrower {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  // Credit profile for underwriting
-  creditScore: number | null;
-  annualIncomeMicros: number | null;
-  monthlyDebtMicros: number | null;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-}
+/**
+ * Borrower Types
+ *
+ * Re-exports from shared package for backwards compatibility.
+ * New code should import directly from @loan-management/shared.
+ */
 
+export type { Borrower } from '@loan-management/shared';
+
+// Input types specific to the API layer
 export interface CreateBorrowerInput {
   name: string;
   email: string;

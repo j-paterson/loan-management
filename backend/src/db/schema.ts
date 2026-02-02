@@ -1,44 +1,10 @@
 import { pgTable, uuid, bigint, integer, timestamp, text, jsonb } from 'drizzle-orm/pg-core';
+import { LOAN_STATUSES, EVENT_TYPES } from '@loan-management/shared';
+import type { LoanStatus, EventType } from '@loan-management/shared';
 
-/**
- * Loan status enum values
- *
- * Pre-disbursement (origination):
- * - DRAFT: Initial application, incomplete
- * - SUBMITTED: Application submitted for review
- * - UNDER_REVIEW: Underwriting in progress
- * - INFO_REQUESTED: Awaiting additional documentation
- * - APPROVED: Approved, awaiting disbursement
- * - DENIED: Application rejected
- * - WITHDRAWN: Borrower cancelled
- * - EXPIRED: Approval expired without disbursement
- *
- * Post-disbursement (servicing):
- * - ACTIVE: Funds disbursed, in good standing
- * - DELINQUENT: Payment(s) past due
- * - DEFAULT: Seriously delinquent
- * - CHARGED_OFF: Written off as loss
- * - PAID_OFF: Fully repaid
- * - REFINANCED: Replaced by new loan
- */
-export const LOAN_STATUSES = [
-  'DRAFT',
-  'SUBMITTED',
-  'UNDER_REVIEW',
-  'INFO_REQUESTED',
-  'APPROVED',
-  'DENIED',
-  'WITHDRAWN',
-  'EXPIRED',
-  'ACTIVE',
-  'DELINQUENT',
-  'DEFAULT',
-  'CHARGED_OFF',
-  'PAID_OFF',
-  'REFINANCED',
-] as const;
-
-export type LoanStatus = typeof LOAN_STATUSES[number];
+// Re-export types for convenience
+export type { LoanStatus, EventType } from '@loan-management/shared';
+export { LOAN_STATUSES, EVENT_TYPES } from '@loan-management/shared';
 
 /**
  * Borrowers table
@@ -88,18 +54,6 @@ export const loans = pgTable('loans', {
 });
 
 export type Loan = typeof loans.$inferSelect;
-
-/**
- * Event types for loan activity tracking
- */
-export const EVENT_TYPES = [
-  'LOAN_CREATED',
-  'LOAN_EDITED',
-  'STATUS_CHANGE',
-  'PAYMENT_RECEIVED',
-] as const;
-
-export type EventType = typeof EVENT_TYPES[number];
 
 /**
  * Loan events table

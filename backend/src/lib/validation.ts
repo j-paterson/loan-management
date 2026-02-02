@@ -1,41 +1,34 @@
 /**
- * Shared Validation Constants
+ * Backend Validation
  *
- * Single source of truth for validation limits used by both
- * backend (Zod schemas) and frontend (form validation).
+ * Re-exports validation constants from shared package.
+ * Backend-specific validation can be added here.
  */
 
-import { MICROS_PER_DOLLAR } from './money.js';
+export {
+  MICROS_PER_DOLLAR,
+  PRINCIPAL_MIN_DOLLARS,
+  PRINCIPAL_MAX_DOLLARS,
+  PRINCIPAL_MIN_MICROS,
+  PRINCIPAL_MAX_MICROS,
+  RATE_MIN_BPS,
+  RATE_MAX_BPS,
+  RATE_WARNING_BPS,
+  RATE_MIN_PERCENT,
+  RATE_MAX_PERCENT,
+  RATE_WARNING_PERCENT,
+  TERM_MIN_MONTHS,
+  TERM_MAX_MONTHS,
+  NAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PHONE_MAX_LENGTH,
+  CREDIT_SCORE_MIN,
+  CREDIT_SCORE_MAX,
+  ANNUAL_INCOME_MAX_DOLLARS,
+  MONTHLY_DEBT_MAX_DOLLARS,
+  MIN_CREDIT_SCORE_FOR_APPROVAL,
+  MAX_DTI_RATIO,
+} from '@loan-management/shared';
 
-// Principal amount limits
-export const PRINCIPAL_MIN_DOLLARS = 1;
-export const PRINCIPAL_MAX_DOLLARS = 10_000_000;
-export const PRINCIPAL_MIN_MICROS = PRINCIPAL_MIN_DOLLARS * MICROS_PER_DOLLAR;
-export const PRINCIPAL_MAX_MICROS = PRINCIPAL_MAX_DOLLARS * MICROS_PER_DOLLAR;
-
-// Interest rate limits (in basis points, 100 bps = 1%)
-export const RATE_MIN_BPS = 0;
-export const RATE_MAX_BPS = 5_000; // 50% hard cap
-export const RATE_WARNING_BPS = 2_000; // 20% soft cap (warning threshold)
-export const RATE_MIN_PERCENT = 0;
-export const RATE_MAX_PERCENT = 50;
-export const RATE_WARNING_PERCENT = 20;
-
-// Term limits (in months)
-export const TERM_MIN_MONTHS = 1;
-export const TERM_MAX_MONTHS = 600; // 50 years
-
-// Borrower field limits
-export const NAME_MAX_LENGTH = 255;
-export const EMAIL_MAX_LENGTH = 255;
-export const PHONE_MAX_LENGTH = 50;
-
-// Credit profile limits
-export const CREDIT_SCORE_MIN = 300;
-export const CREDIT_SCORE_MAX = 850;
-export const ANNUAL_INCOME_MAX_DOLLARS = 100_000_000; // $100M cap
-export const MONTHLY_DEBT_MAX_DOLLARS = 10_000_000;   // $10M cap
-
-// Loan statuses - re-export from schema for consistency
-// Note: The canonical definition is in db/schema.ts
+// Re-export types from schema for backward compatibility
 export { LOAN_STATUSES, type LoanStatus } from '../db/schema.js';

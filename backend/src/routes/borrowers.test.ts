@@ -131,7 +131,7 @@ describe('Borrowers API', () => {
           email: 'new@example.com',
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
       expect(response.body.error.message).toBe('Validation failed');
     });
 
@@ -142,7 +142,7 @@ describe('Borrowers API', () => {
           name: 'New Borrower',
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
       expect(response.body.error.message).toBe('Validation failed');
     });
 
@@ -154,7 +154,7 @@ describe('Borrowers API', () => {
           email: 'not-an-email',
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
 
     it('rejects empty name', async () => {
@@ -165,7 +165,7 @@ describe('Borrowers API', () => {
           email: 'new@example.com',
         });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
   });
 
@@ -192,7 +192,7 @@ describe('Borrowers API', () => {
         .patch('/borrowers/00000000-0000-0000-0000-000000000000')
         .send({ email: 'not-an-email' });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(422);
     });
   });
 

@@ -1,7 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { borrowers } from '../db/schema.js';
+import { borrowerService, httpStatus } from '../services/index.js';
 import {
   uuidParamSchema,
   createBorrowerSchema,
@@ -17,13 +15,13 @@ const router = Router();
 // GET /borrowers - List all borrowers
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await db
-      .select()
-      .from(borrowers)
-      .where(isNull(borrowers.deletedAt))
-      .orderBy(borrowers.name);
+    const result = await borrowerService.list();
 
-    res.json({ data: result });
+    if (!result.success) {
+      return res.status(500).json({ error: { message: result.error } });
+    }
+
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -37,16 +35,13 @@ router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunct
       return res.status(400).json({ error: { message: 'Invalid borrower ID format' } });
     }
 
-    const result = await db
-      .select()
-      .from(borrowers)
-      .where(and(eq(borrowers.id, req.params.id), isNull(borrowers.deletedAt)));
+    const result = await borrowerService.getById(req.params.id);
 
-    if (!result.length) {
-      return res.status(404).json({ error: { message: 'Borrower not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -58,7 +53,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const parsed = createBorrowerSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -66,16 +61,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    const result = await db
-      .insert(borrowers)
-      .values({
-        name: parsed.data.name,
-        email: parsed.data.email,
-        phone: parsed.data.phone,
-      })
-      .returning();
+    const result = await borrowerService.create(parsed.data);
 
-    res.status(201).json({ data: result[0] });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
+    }
+
+    res.status(201).json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -92,7 +84,7 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
     const parsed = updateBorrowerSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -100,34 +92,13 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       });
     }
 
-    const existing = await db
-      .select()
-      .from(borrowers)
-      .where(and(eq(borrowers.id, req.params.id), isNull(borrowers.deletedAt)));
+    const result = await borrowerService.update(req.params.id, parsed.data);
 
-    if (!existing.length) {
-      return res.status(404).json({ error: { message: 'Borrower not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-
-    if (parsed.data.name !== undefined) {
-      updates.name = parsed.data.name;
-    }
-    if (parsed.data.email !== undefined) {
-      updates.email = parsed.data.email;
-    }
-    if (parsed.data.phone !== undefined) {
-      updates.phone = parsed.data.phone;
-    }
-
-    const result = await db
-      .update(borrowers)
-      .set(updates)
-      .where(eq(borrowers.id, req.params.id))
-      .returning();
-
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -141,22 +112,13 @@ router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFu
       return res.status(400).json({ error: { message: 'Invalid borrower ID format' } });
     }
 
-    const existing = await db
-      .select()
-      .from(borrowers)
-      .where(and(eq(borrowers.id, req.params.id), isNull(borrowers.deletedAt)));
+    const result = await borrowerService.remove(req.params.id);
 
-    if (!existing.length) {
-      return res.status(404).json({ error: { message: 'Borrower not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    const result = await db
-      .update(borrowers)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(borrowers.id, req.params.id))
-      .returning();
-
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }

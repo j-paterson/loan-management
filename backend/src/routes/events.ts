@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getLoanEvents } from '../lib/events/index.js';
+import { getLoanEvents } from '../services/index.js';
 import { uuidParamSchema } from '../lib/schemas.js';
 
 const router = Router();

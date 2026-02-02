@@ -1,4 +1,5 @@
 import type { Loan, Borrower, LoanStatus } from '../../db/schema.js';
+import { MIN_CREDIT_SCORE_FOR_APPROVAL, MAX_DTI_RATIO } from '@loan-management/shared';
 
 /**
  * Guard result type
@@ -21,16 +22,6 @@ export interface TransitionContext {
  * Guard function type
  */
 type GuardFn = (ctx: TransitionContext) => GuardResult;
-
-/**
- * Minimum credit score required for approval
- */
-const MIN_CREDIT_SCORE = 620;
-
-/**
- * Maximum debt-to-income ratio (as decimal, e.g., 0.43 = 43%)
- */
-const MAX_DTI_RATIO = 0.43;
 
 /**
  * Calculate monthly payment for a loan (simple amortization)
@@ -100,8 +91,8 @@ const guards: Record<string, GuardFn> = {
     if (!borrower.creditScore) {
       return { allowed: false, reason: 'Borrower credit score is required for approval' };
     }
-    if (borrower.creditScore < MIN_CREDIT_SCORE) {
-      return { allowed: false, reason: `Credit score ${borrower.creditScore} is below minimum ${MIN_CREDIT_SCORE}` };
+    if (borrower.creditScore < MIN_CREDIT_SCORE_FOR_APPROVAL) {
+      return { allowed: false, reason: `Credit score ${borrower.creditScore} is below minimum ${MIN_CREDIT_SCORE_FOR_APPROVAL}` };
     }
 
     // Check DTI if income data available

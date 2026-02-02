@@ -6,4 +6,8 @@ export { PaymentForm } from './PaymentForm';
 export { BorrowerSearch } from './BorrowerSearch';
 export { Breadcrumbs } from './Breadcrumbs';
 export { ConfirmModal } from './ConfirmModal';
+export { LoanStatusTransition } from './LoanStatusTransition';
+export { LoanBalanceCard } from './LoanBalanceCard';
+export { BorrowerCard } from './BorrowerCard';
+export { ActivityTimeline } from './ActivityTimeline';
 export type { BreadcrumbItem } from './Breadcrumbs';

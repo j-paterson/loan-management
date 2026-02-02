@@ -1,16 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and, sum } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { payments, loans, type LoanStatus } from '../db/schema.js';
+import { paymentService, httpStatus } from '../services/index.js';
 import {
   uuidParamSchema,
   createPaymentSchema,
   updatePaymentSchema,
 } from '../lib/schemas.js';
-import { recordPaymentReceived } from '../lib/events/index.js';
-
-// Statuses that allow payments to be recorded
-const PAYMENT_ALLOWED_STATUSES: LoanStatus[] = ['ACTIVE', 'DELINQUENT', 'DEFAULT', 'CHARGED_OFF'];
 
 interface LoanIdParams {
   loanId: string;
@@ -22,37 +16,27 @@ interface PaymentParams extends LoanIdParams {
 
 const router = Router({ mergeParams: true });
 
-// Middleware to validate loanId and ensure loan exists
-async function validateLoan(req: Request<LoanIdParams>, res: Response, next: NextFunction) {
+// Middleware to validate loanId format
+function validateLoanId(req: Request<LoanIdParams>, res: Response, next: NextFunction) {
   const idResult = uuidParamSchema.safeParse(req.params.loanId);
   if (!idResult.success) {
     return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
   }
-
-  const loan = await db
-    .select()
-    .from(loans)
-    .where(and(eq(loans.id, req.params.loanId), isNull(loans.deletedAt)));
-
-  if (!loan.length) {
-    return res.status(404).json({ error: { message: 'Loan not found' } });
-  }
-
   next();
 }
 
-router.use(validateLoan);
+router.use(validateLoanId);
 
 // GET /loans/:loanId/payments - List all payments for a loan
 router.get('/', async (req: Request<LoanIdParams>, res: Response, next: NextFunction) => {
   try {
-    const result = await db
-      .select()
-      .from(payments)
-      .where(and(eq(payments.loanId, req.params.loanId), isNull(payments.deletedAt)))
-      .orderBy(payments.paidAt);
+    const result = await paymentService.listByLoan(req.params.loanId);
 
-    res.json({ data: result });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
+    }
+
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -66,20 +50,13 @@ router.get('/:id', async (req: Request<PaymentParams>, res: Response, next: Next
       return res.status(400).json({ error: { message: 'Invalid payment ID format' } });
     }
 
-    const result = await db
-      .select()
-      .from(payments)
-      .where(and(
-        eq(payments.id, req.params.id),
-        eq(payments.loanId, req.params.loanId),
-        isNull(payments.deletedAt)
-      ));
+    const result = await paymentService.getById(req.params.loanId, req.params.id);
 
-    if (!result.length) {
-      return res.status(404).json({ error: { message: 'Payment not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -91,7 +68,7 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
     const parsed = createPaymentSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -99,67 +76,13 @@ router.post('/', async (req: Request<LoanIdParams>, res: Response, next: NextFun
       });
     }
 
-    // Fetch the loan to check status and calculate remaining balance
-    const [loan] = await db
-      .select()
-      .from(loans)
-      .where(eq(loans.id, req.params.loanId));
+    const result = await paymentService.create(req.params.loanId, parsed.data, { actorId: 'user' });
 
-    if (!loan) {
-      return res.status(404).json({ error: { message: 'Loan not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    // Check loan status allows payments
-    if (!PAYMENT_ALLOWED_STATUSES.includes(loan.status as LoanStatus)) {
-      return res.status(400).json({
-        error: {
-          message: `Cannot record payment for loan in ${loan.status} status. Payments are only allowed for loans that are Active, Delinquent, or in Default.`,
-        },
-      });
-    }
-
-    // Calculate remaining balance
-    const [paymentSum] = await db
-      .select({ total: sum(payments.amountMicros) })
-      .from(payments)
-      .where(and(eq(payments.loanId, req.params.loanId), isNull(payments.deletedAt)));
-
-    const totalPaid = Number(paymentSum?.total || 0);
-    const remainingBalance = loan.principalAmountMicros - totalPaid;
-
-    // Check payment doesn't exceed remaining balance
-    if (parsed.data.amountMicros > remainingBalance) {
-      return res.status(400).json({
-        error: {
-          message: `Payment amount exceeds remaining balance. Maximum payment allowed: ${remainingBalance} micros.`,
-        },
-      });
-    }
-
-    // Wrap payment creation + event recording in transaction
-    const payment = await db.transaction(async (tx) => {
-      const [payment] = await tx
-        .insert(payments)
-        .values({
-          loanId: req.params.loanId,
-          amountMicros: parsed.data.amountMicros,
-          paidAt: new Date(parsed.data.paidAt),
-        })
-        .returning();
-
-      // Record payment event in same transaction
-      await recordPaymentReceived(
-        req.params.loanId,
-        payment.id,
-        payment.amountMicros,
-        'user',
-        tx
-      );
-
-      return payment;
-    });
-
-    res.status(201).json({ data: payment });
+    res.status(201).json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -176,7 +99,7 @@ router.patch('/:id', async (req: Request<PaymentParams>, res: Response, next: Ne
     const parsed = updatePaymentSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         error: {
           message: 'Validation failed',
           details: parsed.error.flatten(),
@@ -184,36 +107,13 @@ router.patch('/:id', async (req: Request<PaymentParams>, res: Response, next: Ne
       });
     }
 
-    // Check if payment exists
-    const existing = await db
-      .select()
-      .from(payments)
-      .where(and(
-        eq(payments.id, req.params.id),
-        eq(payments.loanId, req.params.loanId),
-        isNull(payments.deletedAt)
-      ));
+    const result = await paymentService.update(req.params.loanId, req.params.id, parsed.data);
 
-    if (!existing.length) {
-      return res.status(404).json({ error: { message: 'Payment not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-
-    if (parsed.data.amountMicros !== undefined) {
-      updates.amountMicros = parsed.data.amountMicros;
-    }
-    if (parsed.data.paidAt !== undefined) {
-      updates.paidAt = new Date(parsed.data.paidAt);
-    }
-
-    const result = await db
-      .update(payments)
-      .set(updates)
-      .where(eq(payments.id, req.params.id))
-      .returning();
-
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }
@@ -227,27 +127,13 @@ router.delete('/:id', async (req: Request<PaymentParams>, res: Response, next: N
       return res.status(400).json({ error: { message: 'Invalid payment ID format' } });
     }
 
-    // Check if payment exists
-    const existing = await db
-      .select()
-      .from(payments)
-      .where(and(
-        eq(payments.id, req.params.id),
-        eq(payments.loanId, req.params.loanId),
-        isNull(payments.deletedAt)
-      ));
+    const result = await paymentService.remove(req.params.loanId, req.params.id);
 
-    if (!existing.length) {
-      return res.status(404).json({ error: { message: 'Payment not found' } });
+    if (!result.success) {
+      return res.status(httpStatus(result.code)).json({ error: { message: result.error } });
     }
 
-    const result = await db
-      .update(payments)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(payments.id, req.params.id))
-      .returning();
-
-    res.json({ data: result[0] });
+    res.json({ data: result.data });
   } catch (err) {
     next(err);
   }

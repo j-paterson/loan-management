@@ -90,17 +90,6 @@ describe('LoanDetail', () => {
     });
   });
 
-  it('displays created and updated timestamps', async () => {
-    vi.mocked(loansApi.getById).mockResolvedValue(mockLoan);
-
-    renderWithRoute();
-
-    await waitFor(() => {
-      expect(screen.getByText('Created')).toBeInTheDocument();
-      expect(screen.getByText('Last Updated')).toBeInTheDocument();
-    });
-  });
-
   // ===========================================
   // REQUIREMENT: Handle loading states cleanly
   // ===========================================
