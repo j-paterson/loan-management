@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
 import { loansApi } from '../api/loans';
-import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink, StatusBadge } from '../components';
+import { Card, CardHeader, CardBody, CardFooter, Button, ButtonLink, StatusBadge, Breadcrumbs } from '../components';
+import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
 
 export default function BorrowerDetail() {
@@ -59,6 +60,11 @@ export default function BorrowerDetail() {
     );
   }
 
+  const breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Borrowers', to: '/borrowers' },
+    { label: borrower?.name || 'Borrower' },
+  ];
+
   if (!borrower) {
     return (
       <div className="text-center py-12">
@@ -72,11 +78,7 @@ export default function BorrowerDetail() {
 
   return (
     <div>
-      <div className="mb-6">
-        <Link to="/borrowers" className="text-blue-600 hover:underline text-sm">
-          &larr; Back to borrowers
-        </Link>
-      </div>
+      <Breadcrumbs items={breadcrumbs} />
 
       <Card>
         <CardHeader>
@@ -156,7 +158,7 @@ export default function BorrowerDetail() {
                     {borrowerLoans.map((loan) => (
                       <tr
                         key={loan.id}
-                        onClick={() => navigate(`/loans/${loan.id}`)}
+                        onClick={() => navigate(`/loans/${loan.id}?from=borrower&borrowerId=${id}`)}
                         className="hover:bg-gray-50 cursor-pointer"
                       >
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">

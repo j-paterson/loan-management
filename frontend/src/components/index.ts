@@ -4,3 +4,5 @@ export { Button, ButtonLink } from './Button';
 export { StatusBadge } from './StatusBadge';
 export { PaymentForm } from './PaymentForm';
 export { BorrowerSearch } from './BorrowerSearch';
+export { Breadcrumbs } from './Breadcrumbs';
+export type { BreadcrumbItem } from './Breadcrumbs';
