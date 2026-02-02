@@ -4,12 +4,14 @@ import { z } from 'zod';
 import { db } from '../db/index.js';
 import { loans, borrowers } from '../db/schema.js';
 import {
+  PRINCIPAL_MIN_MICROS,
   PRINCIPAL_MAX_MICROS,
   RATE_MIN_BPS,
   RATE_MAX_BPS,
   TERM_MIN_MONTHS,
   TERM_MAX_MONTHS,
   NAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
   PHONE_MAX_LENGTH,
   LOAN_STATUSES,
 } from '../lib/validation.js';
@@ -21,10 +23,13 @@ interface IdParams {
 
 const router = Router();
 
+// UUID validation for route params
+const uuidParamSchema = z.string().uuid('Invalid ID format');
+
 // Borrower schema for inline creation
 const newBorrowerSchema = z.object({
   name: z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').max(EMAIL_MAX_LENGTH),
   phone: z.string().max(PHONE_MAX_LENGTH).optional(),
 });
 
@@ -33,12 +38,12 @@ const newBorrowerSchema = z.object({
 const createLoanSchema = z.object({
   principalAmountMicros: z.number()
     .int('Amount must be an integer')
-    .positive('Amount must be positive')
-    .max(PRINCIPAL_MAX_MICROS, 'Amount too large'),
+    .min(PRINCIPAL_MIN_MICROS, 'Amount must be at least $1')
+    .max(PRINCIPAL_MAX_MICROS, 'Amount cannot exceed $10,000,000'),
   interestRateBps: z.number()
     .int('Rate must be an integer')
     .min(RATE_MIN_BPS, 'Rate cannot be negative')
-    .max(RATE_MAX_BPS, 'Rate cannot exceed 100%'),
+    .max(RATE_MAX_BPS, 'Rate cannot exceed 50%'),
   termMonths: z.number()
     .int('Term must be a whole number')
     .min(TERM_MIN_MONTHS, 'Term must be at least 1 month')
@@ -54,13 +59,13 @@ const createLoanSchema = z.object({
 const updateLoanSchema = z.object({
   principalAmountMicros: z.number()
     .int('Amount must be an integer')
-    .positive('Amount must be positive')
-    .max(PRINCIPAL_MAX_MICROS, 'Amount too large')
+    .min(PRINCIPAL_MIN_MICROS, 'Amount must be at least $1')
+    .max(PRINCIPAL_MAX_MICROS, 'Amount cannot exceed $10,000,000')
     .optional(),
   interestRateBps: z.number()
     .int('Rate must be an integer')
     .min(RATE_MIN_BPS, 'Rate cannot be negative')
-    .max(RATE_MAX_BPS, 'Rate cannot exceed 100%')
+    .max(RATE_MAX_BPS, 'Rate cannot exceed 50%')
     .optional(),
   termMonths: z.number()
     .int('Term must be a whole number')
@@ -104,6 +109,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // GET /loans/:id - Get single loan
 router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     const result = await db
       .select()
       .from(loans)
@@ -194,6 +204,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 // PATCH /loans/:id - Update loan
 router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     const parsed = updateLoanSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -230,6 +245,14 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       updates.status = parsed.data.status;
     }
     if (parsed.data.borrowerId !== undefined) {
+      // Verify borrower exists
+      const borrowerExists = await db
+        .select()
+        .from(borrowers)
+        .where(and(eq(borrowers.id, parsed.data.borrowerId), isNull(borrowers.deletedAt)));
+      if (!borrowerExists.length) {
+        return res.status(400).json({ error: { message: 'Borrower not found' } });
+      }
       updates.borrowerId = parsed.data.borrowerId;
     }
 
@@ -258,6 +281,11 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
 // DELETE /loans/:id - Soft delete loan
 router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     // Check if loan exists
     const existing = await db
       .select()

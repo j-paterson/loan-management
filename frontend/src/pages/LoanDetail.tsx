@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
-import { StatusBadge } from '../components/StatusBadge';
+import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
 
 export default function LoanDetail() {
@@ -67,13 +67,12 @@ export default function LoanDetail() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+      <Card>
+        <CardHeader actions={<StatusBadge status={loan.status} size="md" />}>
           <h1 className="text-2xl font-bold text-gray-900">Loan Details</h1>
-          <StatusBadge status={loan.status} size="md" />
-        </div>
+        </CardHeader>
 
-        <div className="px-6 py-4">
+        <CardBody>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <dt className="text-sm font-medium text-gray-500">Principal Amount</dt>
@@ -130,24 +129,24 @@ export default function LoanDetail() {
               </dd>
             </div>
           </dl>
-        </div>
+        </CardBody>
 
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
-          <Link
-            to={`/loans/${loan.id}/edit`}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            Edit Loan
-          </Link>
-          <button
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete Loan'}
-          </button>
-        </div>
-      </div>
+        <CardFooter>
+          <div className="flex gap-3">
+            <ButtonLink to={`/loans/${loan.id}/edit`}>
+              Edit Loan
+            </ButtonLink>
+            <Button
+              variant="danger"
+              onClick={handleDelete}
+              isLoading={deleteMutation.isPending}
+              loadingText="Deleting..."
+            >
+              Delete Loan
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

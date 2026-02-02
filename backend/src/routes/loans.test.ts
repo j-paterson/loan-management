@@ -297,15 +297,22 @@ describe('Loans API', () => {
   // ===========================================
   describe('GET /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
-      const response = await request(app).get('/loans/non-existent-id');
+      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(404);
       expect(response.body.error.message).toBe('Loan not found');
     });
 
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app).get('/loans/not-a-uuid');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
+    });
+
     // REQUIREMENT: Useful error responses
     it('returns structured error for 404', async () => {
-      const response = await request(app).get('/loans/non-existent-id');
+      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.body).toHaveProperty('error');
       expect(response.body.error).toHaveProperty('message');
@@ -318,15 +325,24 @@ describe('Loans API', () => {
   describe('PATCH /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
       const response = await request(app)
-        .patch('/loans/non-existent-id')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ principalAmountMicros: 750000000 });
 
       expect(response.status).toBe(404);
     });
 
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app)
+        .patch('/loans/not-a-uuid')
+        .send({ principalAmountMicros: 750000000 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
+    });
+
     it('validates update data', async () => {
       const response = await request(app)
-        .patch('/loans/test-uuid-123')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ principalAmountMicros: -10000000 });
 
       expect(response.status).toBe(400);
@@ -334,7 +350,7 @@ describe('Loans API', () => {
 
     it('allows partial updates', async () => {
       const response = await request(app)
-        .patch('/loans/test-uuid-123')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ status: 'ACTIVE' });
 
       // Will be 404 due to mock, but validates the request format is accepted
@@ -347,9 +363,16 @@ describe('Loans API', () => {
   // ===========================================
   describe('DELETE /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
-      const response = await request(app).delete('/loans/non-existent-id');
+      const response = await request(app).delete('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(404);
+    });
+
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app).delete('/loans/not-a-uuid');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
     });
   });
 
@@ -379,7 +402,7 @@ describe('Loans API', () => {
     });
 
     it('returns 404 for not found', async () => {
-      const response = await request(app).get('/loans/does-not-exist');
+      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(404);
     });

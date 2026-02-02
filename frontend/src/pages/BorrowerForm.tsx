@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { borrowersApi } from '../api/borrowers';
+import { Card, CardHeader, CardBody, FormField, inputStyles, Button, ButtonLink } from '../components';
 import type { CreateBorrowerInput } from '../types/borrower';
 
 interface FormData {
@@ -82,16 +83,13 @@ export default function BorrowerForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validate()) return;
 
-    const data: CreateBorrowerInput = {
+    mutation.mutate({
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || undefined,
-    };
-
-    mutation.mutate(data);
+    });
   };
 
   const handleChange = (field: keyof FormData) => (
@@ -119,91 +117,69 @@ export default function BorrowerForm() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden max-w-xl">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <Card className="max-w-xl">
+        <CardHeader>
           <h1 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Edit Borrower' : 'Create New Borrower'}
           </h1>
-        </div>
+        </CardHeader>
 
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={form.name}
-              onChange={handleChange('name')}
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="John Doe"
-            />
-            {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+        <CardBody>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormField label="Name" htmlFor="name" error={errors.name}>
+              <input
+                type="text"
+                id="name"
+                value={form.name}
+                onChange={handleChange('name')}
+                className={inputStyles(!!errors.name)}
+                placeholder="John Doe"
+              />
+            </FormField>
+
+            <FormField label="Email" htmlFor="email" error={errors.email}>
+              <input
+                type="email"
+                id="email"
+                value={form.email}
+                onChange={handleChange('email')}
+                className={inputStyles(!!errors.email)}
+                placeholder="john@example.com"
+              />
+            </FormField>
+
+            <FormField label="Phone (optional)" htmlFor="phone">
+              <input
+                type="tel"
+                id="phone"
+                value={form.phone}
+                onChange={handleChange('phone')}
+                className={inputStyles(false)}
+                placeholder="(555) 123-4567"
+              />
+            </FormField>
+
+            {mutation.error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-800 text-sm">{mutation.error.message}</p>
+              </div>
             )}
-          </div>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={form.email}
-              onChange={handleChange('email')}
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="john@example.com"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-              Phone (optional)
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              value={form.phone}
-              onChange={handleChange('phone')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-              placeholder="(555) 123-4567"
-            />
-          </div>
-
-          {mutation.error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-800 text-sm">{mutation.error.message}</p>
+            <div className="flex gap-3">
+              <Button
+                type="submit"
+                isLoading={mutation.isPending}
+                loadingText={isEditing ? 'Saving...' : 'Creating...'}
+              >
+                {isEditing ? 'Save Changes' : 'Create Borrower'}
+              </Button>
+              <ButtonLink to="/borrowers" variant="secondary">
+                Cancel
+              </ButtonLink>
             </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {mutation.isPending
-                ? isEditing ? 'Saving...' : 'Creating...'
-                : isEditing ? 'Save Changes' : 'Create Borrower'}
-            </button>
-            <Link
-              to="/borrowers"
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </div>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 }
