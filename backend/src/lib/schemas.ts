@@ -58,3 +58,13 @@ export const createLoanSchema = baseLoanSchema.extend({
 export const updateLoanSchema = baseLoanSchema.partial().extend({
   borrowerId: z.string().uuid().optional(),
 });
+
+// Payment schemas
+export const createPaymentSchema = z.object({
+  amountMicros: z.number()
+    .int('Amount must be an integer')
+    .min(1, 'Amount must be at least 1 micro-unit'),
+  paidAt: z.string().datetime({ offset: true }).or(z.string().date()),
+});
+
+export const updatePaymentSchema = createPaymentSchema.partial();

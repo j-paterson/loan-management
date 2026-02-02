@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and } from 'drizzle-orm';
+import { eq, isNull, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { loans, borrowers } from '../db/schema.js';
+import { loans, borrowers, payments } from '../db/schema.js';
 import {
   uuidParamSchema,
   createLoanSchema,
   updateLoanSchema,
 } from '../lib/schemas.js';
+import { money, micros, subtractMoney } from '../lib/money.js';
 
 // Type for routes with :id parameter
 interface IdParams {
@@ -14,6 +15,15 @@ interface IdParams {
 }
 
 const router = Router();
+
+// Helper to calculate remaining balance using dinero.js
+function calculateRemainingBalance(principalMicros: number, paymentAmounts: number[]): number {
+  let balance = money(principalMicros);
+  for (const amount of paymentAmounts) {
+    balance = subtractMoney(balance, money(amount));
+  }
+  return micros(balance);
+}
 
 // GET /loans - List all loans with borrower data
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -33,10 +43,31 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     // Create borrower lookup map
     const borrowerMap = new Map(borrowerList.map(b => [b.id, b]));
 
-    // Attach borrower to each loan
+    // Get payment totals for all loans
+    const loanIds = result.map(l => l.id);
+    const paymentsList = loanIds.length > 0
+      ? await db
+          .select({ loanId: payments.loanId, amountMicros: payments.amountMicros })
+          .from(payments)
+          .where(isNull(payments.deletedAt))
+      : [];
+
+    // Group payments by loan ID
+    const paymentsByLoan = new Map<string, number[]>();
+    for (const p of paymentsList) {
+      const existing = paymentsByLoan.get(p.loanId) || [];
+      existing.push(p.amountMicros);
+      paymentsByLoan.set(p.loanId, existing);
+    }
+
+    // Attach borrower and remaining balance to each loan
     const data = result.map(loan => ({
       ...loan,
       borrower: borrowerMap.get(loan.borrowerId) ?? null,
+      remainingBalanceMicros: calculateRemainingBalance(
+        loan.principalAmountMicros,
+        paymentsByLoan.get(loan.id) || []
+      ),
     }));
 
     res.json({ data });
@@ -74,7 +105,18 @@ router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunct
       borrower = borrowerResult[0] ?? null;
     }
 
-    res.json({ data: { ...loan, borrower } });
+    // Calculate remaining balance
+    const loanPayments = await db
+      .select({ amountMicros: payments.amountMicros })
+      .from(payments)
+      .where(and(eq(payments.loanId, loan.id), isNull(payments.deletedAt)));
+
+    const remainingBalanceMicros = calculateRemainingBalance(
+      loan.principalAmountMicros,
+      loanPayments.map(p => p.amountMicros)
+    );
+
+    res.json({ data: { ...loan, borrower, remainingBalanceMicros } });
   } catch (err) {
     next(err);
   }
