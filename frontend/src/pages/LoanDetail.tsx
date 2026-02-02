@@ -233,28 +233,30 @@ export default function LoanDetail() {
             </div>
 
             <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
-              <dt className="text-sm font-medium text-gray-500 mb-2">Status</dt>
-              <dd className="flex items-center gap-3 flex-wrap">
-                <StatusBadge status={loan.status} size="md" />
-                {availableTransitions.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    <span className="text-sm text-gray-500 self-center">→</span>
-                    {availableTransitions.map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => handleTransitionClick(status)}
-                        disabled={transitionMutation.isPending}
-                        className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {STATUS_LABELS[status]}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {availableTransitions.length === 0 && (
-                  <span className="text-sm text-gray-500 italic">Terminal status</span>
-                )}
-              </dd>
+              <div className="flex items-center gap-4 flex-wrap">
+                <dt className="text-sm font-medium text-gray-500">Status</dt>
+                <dd className="flex items-center gap-3 flex-wrap">
+                  <StatusBadge status={loan.status} size="md" />
+                  {availableTransitions.length > 0 && (
+                    <div className="flex gap-2 flex-wrap">
+                      <span className="text-sm text-gray-500 self-center">→</span>
+                      {availableTransitions.map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleTransitionClick(status)}
+                          disabled={transitionMutation.isPending}
+                          className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {STATUS_LABELS[status]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {availableTransitions.length === 0 && (
+                    <span className="text-sm text-gray-500 italic">Terminal status</span>
+                  )}
+                </dd>
+              </div>
               {transitionMutation.error && (
                 <p className="mt-2 text-sm text-red-600">
                   {transitionMutation.error.message}
