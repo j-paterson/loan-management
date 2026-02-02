@@ -141,12 +141,12 @@ describe('Loans API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('rejects interest rate over 100%', async () => {
+    it('rejects interest rate over 50%', async () => {
       const response = await request(app)
         .post('/loans')
         .send({
           principalAmountMicros: 500000000,
-          interestRateBps: 15000, // 150%
+          interestRateBps: 6000, // 60% (over 50% cap)
           termMonths: 12,
         });
 
@@ -276,19 +276,12 @@ describe('Loans API', () => {
   // REQUIREMENT: GET /loans — List loans
   // ===========================================
   describe('GET /loans', () => {
-    it('returns a list of loans', async () => {
-      const response = await request(app).get('/loans');
-
-      expect(response.status).toBe(200);
-      expect(response.body.data).toBeDefined();
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
-
-    it('returns consistent response structure', async () => {
+    it('returns a list of loans wrapped in data property', async () => {
       const response = await request(app).get('/loans');
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
   });
 
@@ -308,14 +301,6 @@ describe('Loans API', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error.message).toBe('Invalid loan ID format');
-    });
-
-    // REQUIREMENT: Useful error responses
-    it('returns structured error for 404', async () => {
-      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toHaveProperty('message');
     });
   });
 
@@ -377,67 +362,22 @@ describe('Loans API', () => {
   });
 
   // ===========================================
-  // REQUIREMENT: Appropriate status codes
+  // REQUIREMENT: Response format consistency
   // ===========================================
-  describe('HTTP Status Codes', () => {
-    it('returns 201 for successful creation', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({
-          principalAmountMicros: 500000000,
-          interestRateBps: 500,
-          termMonths: 12,
-          newBorrower: { name: 'Test User', email: 'test@example.com' },
-        });
-
-      expect(response.status).toBe(201);
-    });
-
-    it('returns 400 for validation errors', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({});
-
-      expect(response.status).toBe(400);
-    });
-
-    it('returns 404 for not found', async () => {
-      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
-
-      expect(response.status).toBe(404);
-    });
-
+  describe('Response Format', () => {
     it('returns 404 for unknown routes', async () => {
       const response = await request(app).get('/unknown-route');
 
       expect(response.status).toBe(404);
-    });
-  });
-
-  // ===========================================
-  // REQUIREMENT: API Response Structure
-  // ===========================================
-  describe('Response Structure', () => {
-    it('wraps successful responses in data property', async () => {
-      const response = await request(app).get('/loans');
-
-      expect(response.body).toHaveProperty('data');
+      expect(response.body.error.message).toBe('Not found');
     });
 
-    it('wraps errors in error property', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({});
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toHaveProperty('message');
-    });
-
-    it('includes validation details on error', async () => {
+    it('includes validation details in error responses', async () => {
       const response = await request(app)
         .post('/loans')
         .send({ principalAmountMicros: -1 });
 
+      expect(response.body.error).toHaveProperty('message', 'Validation failed');
       expect(response.body.error).toHaveProperty('details');
     });
   });

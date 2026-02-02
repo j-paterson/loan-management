@@ -199,14 +199,55 @@ Given more time:
 ## Testing
 
 ```bash
-# Backend (45 tests)
+# Backend (38 tests)
 cd backend && npm test
 
 # Frontend (41 tests)
 cd frontend && npm test
 ```
 
-Tests cover API endpoints, validation rules, component rendering, form interactions, and error states.
+### Test Categories
+
+| Category | Description | Examples |
+|----------|-------------|----------|
+| **Unit** | Pure functions with no dependencies | `money.test.ts` - parse/format, arithmetic |
+| **API** | HTTP request/response validation | `loans.test.ts` - endpoints, status codes, validation |
+| **Component** | React component rendering and state | `LoanList.test.tsx` - display, loading, error states |
+| **Integration** | User interactions and form flows | `LoanForm.test.tsx` - validation, submission |
+
+### Backend Test Structure
+
+```
+describe('Resource API')
+  describe('POST /resource')     → Create operations + validation
+  describe('GET /resource')      → List operations
+  describe('GET /resource/:id')  → Single resource + 404/400 handling
+  describe('PATCH /resource/:id') → Update operations + validation
+  describe('DELETE /resource/:id') → Soft delete + 404/400 handling
+  describe('Response Format')    → Consistent { data } / { error } structure
+```
+
+### What We Test
+
+**Backend:**
+- Input validation (required fields, types, ranges, formats)
+- Error responses (400 validation, 404 not found, invalid UUID)
+- Response structure consistency
+- Edge cases (zero values, max limits, empty payloads)
+
+**Frontend:**
+- Component rendering with mock data
+- Loading, error, and empty states
+- Form validation feedback
+- User interactions (submit, cancel, field changes)
+- API integration (correct payload transformation)
+
+### Test Principles
+
+1. **One assertion focus** — Each test verifies one behavior
+2. **Descriptive names** — Test names describe the expected behavior
+3. **Mock at boundaries** — Mock APIs and DB, not internal functions
+4. **No redundancy** — Each scenario tested once in the most appropriate place
 
 ## AI Tool Usage
 
