@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { inputStyles } from './FormField';
+import { inputStyles } from './styles';
 import type { Borrower } from '../types/borrower';
 
 interface NewBorrowerData {
@@ -59,12 +59,7 @@ export function BorrowerSearch({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (selectedBorrowerId && selectedBorrower) {
-      setSearchQuery('');
-      setIsCreatingNew(false);
-    }
-  }, [selectedBorrowerId, selectedBorrower]);
+  // Reset search state when selection changes (handled via event handlers, not effect)
 
   const handleSelectBorrower = (borrower: Borrower) => {
     onSelectBorrower(borrower.id);

@@ -35,4 +35,4 @@ export interface CreateLoanInput {
   };
 }
 
-export interface UpdateLoanInput extends Partial<CreateLoanInput> {}
+export type UpdateLoanInput = Partial<CreateLoanInput>;

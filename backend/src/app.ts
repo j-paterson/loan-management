@@ -25,7 +25,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Global error handler
-app.use((err: Error & { status?: number; statusCode?: number }, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error & { status?: number; statusCode?: number }, req: Request, res: Response, _next: NextFunction) => {
   // Handle JSON parsing errors and other client errors
   const statusCode = err.status || err.statusCode || 500;
   const isClientError = statusCode >= 400 && statusCode < 500;

@@ -50,7 +50,7 @@ export default function BorrowerDetail() {
     const monthlyIncome = borrower.annualIncomeMicros / 12;
     if (monthlyIncome === 0) return null;
     return (borrower.monthlyDebtMicros / monthlyIncome) * 100;
-  }, [borrower?.annualIncomeMicros, borrower?.monthlyDebtMicros]);
+  }, [borrower]);
 
   if (isLoading) {
     return (
