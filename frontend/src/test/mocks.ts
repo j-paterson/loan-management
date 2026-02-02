@@ -7,6 +7,9 @@ export const mockBorrowers: Borrower[] = [
     name: 'Alice Johnson',
     email: 'alice@example.com',
     phone: '555-0101',
+    creditScore: 720,
+    annualIncomeMicros: 850000000, // $85,000
+    monthlyDebtMicros: 15000000,   // $1,500
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
     deletedAt: null,
@@ -16,6 +19,9 @@ export const mockBorrowers: Borrower[] = [
     name: 'Bob Smith',
     email: 'bob@example.com',
     phone: '555-0102',
+    creditScore: 680,
+    annualIncomeMicros: 620000000, // $62,000
+    monthlyDebtMicros: 20000000,   // $2,000
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
     deletedAt: null,

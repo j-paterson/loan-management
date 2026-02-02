@@ -187,7 +187,7 @@ export default function LoanDetail() {
       <Breadcrumbs items={breadcrumbs} />
 
       <Card>
-        <CardHeader actions={<StatusBadge status={loan.status} size="md" />}>
+        <CardHeader>
           <h1 className="text-2xl font-bold text-gray-900">Loan Details</h1>
         </CardHeader>
 
@@ -223,37 +223,30 @@ export default function LoanDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Principal Amount</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+              <dd className="mt-1 text-xl font-semibold text-gray-900">
                 {formatAmount(loan.principalAmountMicros)}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Interest Rate (APR)</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+              <dd className="mt-1 text-xl font-semibold text-gray-900">
                 {formatRate(loan.interestRateBps)}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Term</dt>
-              <dd className="mt-1 text-lg text-gray-900">{loan.termMonths} months</dd>
+              <dd className="mt-1 text-base text-gray-900">{loan.termMonths} months</dd>
             </div>
 
-            <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
-              <div className="flex items-center gap-4 flex-wrap">
-                <dt className="text-sm font-medium text-gray-500">Status</dt>
-                <dd className="flex items-center gap-3">
-                  <StatusBadge status={loan.status} size="md" />
-                  {transitions.length === 0 && (
-                    <span className="text-sm text-gray-500 italic">Terminal status</span>
-                  )}
-                </dd>
-              </div>
-              {transitions.length > 0 && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Available Transitions</span>
-                  <div className="flex gap-2 flex-wrap">
+            <div className="md:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Status</dt>
+              <dd className="mt-1 flex items-center gap-3 flex-wrap">
+                <StatusBadge status={loan.status} size="md" />
+                {transitions.length > 0 && (
+                  <>
+                    <span className="text-gray-400 text-lg">→</span>
                     {transitions.map((transition) => (
                       <div key={transition.toStatus} className="relative group">
                         <button
@@ -275,9 +268,12 @@ export default function LoanDetail() {
                         )}
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
+                  </>
+                )}
+                {transitions.length === 0 && (
+                  <span className="text-sm text-gray-500 italic">Terminal status</span>
+                )}
+              </dd>
               {transitionMutation.error && (
                 <p className="mt-2 text-sm text-red-600">
                   {transitionMutation.error.message}
@@ -287,7 +283,7 @@ export default function LoanDetail() {
 
             <div className="md:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Borrower</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-base text-gray-900">
                 {loan.borrower ? (
                   <Link
                     to={`/borrowers/${loan.borrowerId}`}
@@ -312,14 +308,14 @@ export default function LoanDetail() {
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Created</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-sm text-gray-700">
                 {new Date(loan.createdAt).toLocaleString()}
               </dd>
             </div>
 
             <div>
               <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-lg text-gray-900">
+              <dd className="mt-1 text-sm text-gray-700">
                 {new Date(loan.updatedAt).toLocaleString()}
               </dd>
             </div>
