@@ -3,6 +3,7 @@ import LoanList from './pages/LoanList';
 import LoanDetail from './pages/LoanDetail';
 import LoanForm from './pages/LoanForm';
 import BorrowerList from './pages/BorrowerList';
+import BorrowerDetail from './pages/BorrowerDetail';
 import BorrowerForm from './pages/BorrowerForm';
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
@@ -43,6 +44,7 @@ function App() {
           <Route path="/loans/:id/edit" element={<LoanForm />} />
           <Route path="/borrowers" element={<BorrowerList />} />
           <Route path="/borrowers/new" element={<BorrowerForm />} />
+          <Route path="/borrowers/:id" element={<BorrowerDetail />} />
           <Route path="/borrowers/:id/edit" element={<BorrowerForm />} />
         </Routes>
       </main>

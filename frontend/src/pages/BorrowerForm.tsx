@@ -58,7 +58,7 @@ export default function BorrowerForm() {
     mutationFn: (data: CreateBorrowerInput) => borrowersApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['borrowers'] });
-      navigate('/borrowers');
+      navigate(`/borrowers/${id}`);
     },
   });
 
