@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAmount, formatRate } from '../utils/format';
-type SortField = 'borrower' | 'principal' | 'rate' | 'term' | 'status' | 'createdAt';
+type SortField = 'borrower' | 'principal' | 'balance' | 'rate' | 'term' | 'status' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
 function SortableHeader({
@@ -77,6 +77,10 @@ export default function LoanList() {
         case 'principal':
           aVal = a.principalAmountMicros;
           bVal = b.principalAmountMicros;
+          break;
+        case 'balance':
+          aVal = a.remainingBalanceMicros;
+          bVal = b.remainingBalanceMicros;
           break;
         case 'rate':
           aVal = a.interestRateBps;
@@ -156,6 +160,14 @@ export default function LoanList() {
                   Principal
                 </SortableHeader>
                 <SortableHeader
+                  field="balance"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                >
+                  Balance
+                </SortableHeader>
+                <SortableHeader
                   field="rate"
                   currentField={sortField}
                   direction={sortDirection}
@@ -206,6 +218,13 @@ export default function LoanList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {formatAmount(loan.principalAmountMicros)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {loan.remainingBalanceMicros === 0 ? (
+                      <span className="text-green-600 font-medium">Paid</span>
+                    ) : (
+                      formatAmount(loan.remainingBalanceMicros)
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatRate(loan.interestRateBps)}
