@@ -2,51 +2,70 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
 
+// Mock the events module
+vi.mock('../lib/events/index.js', () => ({
+  recordLoanCreated: vi.fn(() => Promise.resolve({ id: 'event-123' })),
+  recordLoanEdited: vi.fn(() => Promise.resolve({ id: 'event-124' })),
+  recordStatusChange: vi.fn(() => Promise.resolve({ id: 'event-125' })),
+  recordPaymentReceived: vi.fn(() => Promise.resolve({ id: 'event-126' })),
+  getLoanEvents: vi.fn(() => Promise.resolve([])),
+}));
+
 // Mock the database module
 vi.mock('../db/index.js', () => {
   const mockLoans: Record<string, any>[] = [];
 
-  return {
-    db: {
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => Promise.resolve(mockLoans.filter(l => !l.deletedAt))),
-          })),
+  const createMockDb = () => ({
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(() => Promise.resolve(mockLoans.filter(l => !l.deletedAt))),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        returning: vi.fn(() => Promise.resolve([{
+          id: 'test-uuid-123',
+          principalAmountMicros: 500000000, // $50,000
+          interestRateBps: 550,             // 5.50%
+          termMonths: 60,
+          status: 'DRAFT',
+          borrowerId: 'borrower-uuid-123',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          deletedAt: null,
+        }])),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => ({
           returning: vi.fn(() => Promise.resolve([{
             id: 'test-uuid-123',
-            principalAmountMicros: 500000000, // $50,000
-            interestRateBps: 550,             // 5.50%
+            principalAmountMicros: 750000000, // $75,000
+            interestRateBps: 550,
             termMonths: 60,
-            status: 'DRAFT',
+            status: 'ACTIVE',
+            borrowerId: 'borrower-uuid-123',
             createdAt: new Date(),
             updatedAt: new Date(),
             deletedAt: null,
           }])),
         })),
       })),
-      update: vi.fn(() => ({
-        set: vi.fn(() => ({
-          where: vi.fn(() => ({
-            returning: vi.fn(() => Promise.resolve([{
-              id: 'test-uuid-123',
-              principalAmountMicros: 750000000, // $75,000
-              interestRateBps: 550,
-              termMonths: 60,
-              status: 'ACTIVE',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              deletedAt: null,
-            }])),
-          })),
-        })),
-      })),
-    },
-  };
+    })),
+  });
+
+  const mockDb = createMockDb();
+
+  // Add transaction support - transaction callback receives same db interface
+  mockDb.transaction = vi.fn(async (callback: (tx: any) => Promise<any>) => {
+    const txDb = createMockDb();
+    return callback(txDb);
+  });
+
+  return { db: mockDb };
 });
 
 describe('Loans API', () => {

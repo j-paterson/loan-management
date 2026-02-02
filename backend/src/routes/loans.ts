@@ -1,14 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and, sql } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { loans, borrowers, payments, type LoanStatus } from '../db/schema.js';
+import { loans, borrowers, payments, type LoanStatus, type Borrower } from '../db/schema.js';
 import {
   uuidParamSchema,
   createLoanSchema,
   updateLoanSchema,
 } from '../lib/schemas.js';
 import { money, micros, subtractMoney } from '../lib/money.js';
-import { recordInitialStatus } from '../lib/state-machine/index.js';
+import { recordLoanCreated, recordLoanEdited } from '../lib/events/index.js';
 
 // Type for routes with :id parameter
 interface IdParams {
@@ -137,52 +137,61 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    let borrowerId = parsed.data.borrowerId;
-    let borrower = null;
-
-    // If newBorrower provided, create it first (atomic with loan creation)
-    if (parsed.data.newBorrower) {
-      const borrowerResult = await db
-        .insert(borrowers)
-        .values({
-          name: parsed.data.newBorrower.name,
-          email: parsed.data.newBorrower.email,
-          phone: parsed.data.newBorrower.phone,
-        })
-        .returning();
-      borrower = borrowerResult[0];
-      borrowerId = borrower.id;
-    } else if (borrowerId) {
-      // Fetch existing borrower (must not be deleted)
+    // Validate borrower exists before transaction if using existing borrower
+    let existingBorrower: Borrower | null = null;
+    if (parsed.data.borrowerId) {
       const borrowerResult = await db
         .select()
         .from(borrowers)
-        .where(and(eq(borrowers.id, borrowerId), isNull(borrowers.deletedAt)));
+        .where(and(eq(borrowers.id, parsed.data.borrowerId), isNull(borrowers.deletedAt)));
       if (!borrowerResult.length) {
         return res.status(400).json({
           error: { message: 'Borrower not found' },
         });
       }
-      borrower = borrowerResult[0];
+      existingBorrower = borrowerResult[0];
     }
 
     const initialStatus = (parsed.data.status ?? 'DRAFT') as LoanStatus;
 
-    const result = await db
-      .insert(loans)
-      .values({
-        principalAmountMicros: parsed.data.principalAmountMicros,
-        interestRateBps: parsed.data.interestRateBps,
-        termMonths: parsed.data.termMonths,
-        status: initialStatus,
-        borrowerId: borrowerId!,
-      })
-      .returning();
+    // Wrap loan + borrower creation + event recording in transaction
+    const { loan, borrower } = await db.transaction(async (tx) => {
+      let borrowerId = parsed.data.borrowerId;
+      let borrower: Borrower | null = existingBorrower;
 
-    // Record initial status in audit history
-    await recordInitialStatus(result[0].id, initialStatus, 'user');
+      // If newBorrower provided, create it first
+      if (parsed.data.newBorrower) {
+        const [newBorrower] = await tx
+          .insert(borrowers)
+          .values({
+            name: parsed.data.newBorrower.name,
+            email: parsed.data.newBorrower.email,
+            phone: parsed.data.newBorrower.phone,
+          })
+          .returning();
+        borrower = newBorrower;
+        borrowerId = newBorrower.id;
+      }
 
-    res.status(201).json({ data: { ...result[0], borrower } });
+      // Insert loan
+      const [loan] = await tx
+        .insert(loans)
+        .values({
+          principalAmountMicros: parsed.data.principalAmountMicros,
+          interestRateBps: parsed.data.interestRateBps,
+          termMonths: parsed.data.termMonths,
+          status: initialStatus,
+          borrowerId: borrowerId!,
+        })
+        .returning();
+
+      // Record loan created event in same transaction
+      await recordLoanCreated(loan.id, initialStatus, 'user', tx);
+
+      return { loan, borrower };
+    });
+
+    res.status(201).json({ data: { ...loan, borrower } });
   } catch (err) {
     next(err);
   }
@@ -217,37 +226,10 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       return res.status(404).json({ error: { message: 'Loan not found' } });
     }
 
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-    let borrower = null;
+    const existingLoan = existing[0];
 
-    if (parsed.data.principalAmountMicros !== undefined) {
-      updates.principalAmountMicros = parsed.data.principalAmountMicros;
-    }
-    if (parsed.data.interestRateBps !== undefined) {
-      updates.interestRateBps = parsed.data.interestRateBps;
-    }
-    if (parsed.data.termMonths !== undefined) {
-      updates.termMonths = parsed.data.termMonths;
-    }
-    if (parsed.data.status !== undefined) {
-      updates.status = parsed.data.status;
-    }
-
-    // Handle borrower assignment - either new borrower creation or existing borrower selection
-    if (parsed.data.newBorrower) {
-      // Create new borrower inline
-      const borrowerResult = await db
-        .insert(borrowers)
-        .values({
-          name: parsed.data.newBorrower.name,
-          email: parsed.data.newBorrower.email,
-          phone: parsed.data.newBorrower.phone,
-        })
-        .returning();
-      borrower = borrowerResult[0];
-      updates.borrowerId = borrower.id;
-    } else if (parsed.data.borrowerId !== undefined) {
-      // Verify existing borrower exists
+    // Validate borrower exists before transaction if changing to existing borrower
+    if (parsed.data.borrowerId !== undefined) {
       const borrowerExists = await db
         .select()
         .from(borrowers)
@@ -255,25 +237,83 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       if (!borrowerExists.length) {
         return res.status(400).json({ error: { message: 'Borrower not found' } });
       }
-      updates.borrowerId = parsed.data.borrowerId;
     }
 
-    const result = await db
-      .update(loans)
-      .set(updates)
-      .where(eq(loans.id, req.params.id))
-      .returning();
+    // Wrap update + borrower creation + event recording in transaction
+    const { loan, borrower } = await db.transaction(async (tx) => {
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      let borrower: Borrower | null = null;
 
-    // Fetch borrower data if not already loaded from inline creation
-    if (!borrower && result[0].borrowerId) {
-      const borrowerResult = await db
-        .select()
-        .from(borrowers)
-        .where(eq(borrowers.id, result[0].borrowerId));
-      borrower = borrowerResult[0] ?? null;
-    }
+      if (parsed.data.principalAmountMicros !== undefined) {
+        updates.principalAmountMicros = parsed.data.principalAmountMicros;
+      }
+      if (parsed.data.interestRateBps !== undefined) {
+        updates.interestRateBps = parsed.data.interestRateBps;
+      }
+      if (parsed.data.termMonths !== undefined) {
+        updates.termMonths = parsed.data.termMonths;
+      }
+      if (parsed.data.status !== undefined) {
+        updates.status = parsed.data.status;
+      }
 
-    res.json({ data: { ...result[0], borrower } });
+      // Handle borrower assignment
+      if (parsed.data.newBorrower) {
+        const [newBorrower] = await tx
+          .insert(borrowers)
+          .values({
+            name: parsed.data.newBorrower.name,
+            email: parsed.data.newBorrower.email,
+            phone: parsed.data.newBorrower.phone,
+          })
+          .returning();
+        borrower = newBorrower;
+        updates.borrowerId = newBorrower.id;
+      } else if (parsed.data.borrowerId !== undefined) {
+        updates.borrowerId = parsed.data.borrowerId;
+      }
+
+      // Update loan
+      const [loan] = await tx
+        .update(loans)
+        .set(updates)
+        .where(eq(loans.id, req.params.id))
+        .returning();
+
+      // Track changes for event recording
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+
+      if (parsed.data.principalAmountMicros !== undefined && parsed.data.principalAmountMicros !== existingLoan.principalAmountMicros) {
+        changes.principalAmountMicros = { from: existingLoan.principalAmountMicros, to: parsed.data.principalAmountMicros };
+      }
+      if (parsed.data.interestRateBps !== undefined && parsed.data.interestRateBps !== existingLoan.interestRateBps) {
+        changes.interestRateBps = { from: existingLoan.interestRateBps, to: parsed.data.interestRateBps };
+      }
+      if (parsed.data.termMonths !== undefined && parsed.data.termMonths !== existingLoan.termMonths) {
+        changes.termMonths = { from: existingLoan.termMonths, to: parsed.data.termMonths };
+      }
+      if (updates.borrowerId !== undefined && updates.borrowerId !== existingLoan.borrowerId) {
+        changes.borrowerId = { from: existingLoan.borrowerId, to: updates.borrowerId };
+      }
+
+      // Record edit event if there were changes
+      if (Object.keys(changes).length > 0) {
+        await recordLoanEdited(req.params.id, changes, 'user', tx);
+      }
+
+      // Fetch borrower data if not already loaded from inline creation
+      if (!borrower && loan.borrowerId) {
+        const borrowerResult = await tx
+          .select()
+          .from(borrowers)
+          .where(eq(borrowers.id, loan.borrowerId));
+        borrower = borrowerResult[0] ?? null;
+      }
+
+      return { loan, borrower };
+    });
+
+    res.json({ data: { ...loan, borrower } });
   } catch (err) {
     next(err);
   }

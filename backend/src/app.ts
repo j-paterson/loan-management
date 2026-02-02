@@ -4,6 +4,7 @@ import { loanRoutes } from './routes/loans.js';
 import { borrowerRoutes } from './routes/borrowers.js';
 import { paymentRoutes } from './routes/payments.js';
 import { loanStatusRoutes } from './routes/loan-status.js';
+import { eventsRoutes } from './routes/events.js';
 
 const app = express();
 
@@ -11,9 +12,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use('/loans', loanRoutes);
-app.use('/loans', loanStatusRoutes); // Status transition routes under /loans/:loanId/status/*
+// Routes - order matters for path matching
+app.use('/loans', loanStatusRoutes); // Status routes (must be before loanRoutes)
+app.use('/loans', eventsRoutes); // Events routes (must be before loanRoutes)
+app.use('/loans', loanRoutes); // Generic loan CRUD (has /:id that catches everything)
 app.use('/loans/:loanId/payments', paymentRoutes);
 app.use('/borrowers', borrowerRoutes);
 

@@ -90,22 +90,42 @@ export const loans = pgTable('loans', {
 export type Loan = typeof loans.$inferSelect;
 
 /**
- * Loan status history table
- *
- * Audit trail for all status transitions
+ * Event types for loan activity tracking
  */
-export const loanStatusHistory = pgTable('loan_status_history', {
+export const EVENT_TYPES = [
+  'LOAN_CREATED',
+  'LOAN_EDITED',
+  'STATUS_CHANGE',
+  'PAYMENT_RECEIVED',
+] as const;
+
+export type EventType = typeof EVENT_TYPES[number];
+
+/**
+ * Loan events table
+ *
+ * Unified audit trail for all loan-related activities
+ */
+export const loanEvents = pgTable('loan_events', {
   id: uuid('id').defaultRandom().primaryKey(),
   loanId: uuid('loan_id').notNull().references(() => loans.id),
+  eventType: text('event_type', { enum: EVENT_TYPES }).notNull(),
+  occurredAt: timestamp('occurred_at').defaultNow().notNull(),
+  actorId: text('actor_id'), // User identifier or 'system'
+  // Status change fields
   fromStatus: text('from_status', { enum: LOAN_STATUSES }),
-  toStatus: text('to_status', { enum: LOAN_STATUSES }).notNull(),
-  changedAt: timestamp('changed_at').defaultNow().notNull(),
-  changedBy: text('changed_by'), // User identifier or 'system'
-  reason: text('reason'), // Optional explanation
-  metadata: jsonb('metadata'), // Additional context (payment ID, etc.)
+  toStatus: text('to_status', { enum: LOAN_STATUSES }),
+  // Edit tracking fields
+  changes: jsonb('changes'), // { field: { from: old, to: new } }
+  // Payment reference
+  paymentId: uuid('payment_id').references(() => payments.id),
+  paymentAmountMicros: bigint('payment_amount_micros', { mode: 'number' }),
+  // General fields
+  description: text('description'), // Human-readable summary
+  metadata: jsonb('metadata'), // Additional context
 });
 
-export type LoanStatusHistory = typeof loanStatusHistory.$inferSelect;
+export type LoanEvent = typeof loanEvents.$inferSelect;
 
 /**
  * Payments table

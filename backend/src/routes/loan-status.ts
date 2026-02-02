@@ -2,11 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
   transitionLoanStatus,
-  getLoanStatusHistory,
-  getValidNextStatuses,
   VALID_TRANSITIONS,
 } from '../lib/state-machine/index.js';
-import { LOAN_STATUSES, type LoanStatus } from '../db/schema.js';
 import { uuidParamSchema } from '../lib/schemas.js';
 
 const router = Router();
@@ -80,28 +77,6 @@ router.post(
       }
 
       res.json({ data: result.loan });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-/**
- * GET /loans/:loanId/status/history
- * Get the status history for a loan
- */
-router.get(
-  '/:loanId/status/history',
-  async (req: Request<{ loanId: string }>, res: Response, next: NextFunction) => {
-    try {
-      // Validate loan ID
-      const idResult = uuidParamSchema.safeParse(req.params.loanId);
-      if (!idResult.success) {
-        return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
-      }
-
-      const history = await getLoanStatusHistory(req.params.loanId);
-      res.json({ data: history });
     } catch (err) {
       next(err);
     }

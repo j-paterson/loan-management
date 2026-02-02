@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { loans, loanStatusHistory, borrowers, type LoanStatus, type Loan, type Borrower } from '../../db/schema.js';
+import { loans, borrowers, type LoanStatus, type Loan } from '../../db/schema.js';
 import { isValidTransition, getValidNextStatuses, isTerminalStatus } from './transitions.js';
 import { checkTransitionGuard, type TransitionContext } from './guards.js';
+import { recordStatusChange } from '../events/index.js';
 
 export { isValidTransition, getValidNextStatuses, isTerminalStatus } from './transitions.js';
 export { STATUS_CATEGORIES, VALID_TRANSITIONS } from './transitions.js';
@@ -32,10 +33,10 @@ export interface TransitionOptions {
  *
  * This is the main entry point for all status changes.
  * It validates the transition, checks guards, updates the loan,
- * and records the change in the audit history.
+ * and records the change in the events table.
  */
 export async function transitionLoanStatus(options: TransitionOptions): Promise<TransitionResult> {
-  const { loanId, toStatus, changedBy = 'system', reason, metadata } = options;
+  const { loanId, toStatus, changedBy = 'system', reason } = options;
 
   // Fetch the loan with borrower
   const loanResult = await db
@@ -102,7 +103,7 @@ export async function transitionLoanStatus(options: TransitionOptions): Promise<
     updateData.disbursedAt = now;
   }
 
-  // Perform the update and record history in a transaction
+  // Perform the update and record event in a transaction
   const [updatedLoan] = await db.transaction(async (tx) => {
     // Update the loan
     const updated = await tx
@@ -111,49 +112,11 @@ export async function transitionLoanStatus(options: TransitionOptions): Promise<
       .where(eq(loans.id, loanId))
       .returning();
 
-    // Record in status history
-    await tx.insert(loanStatusHistory).values({
-      loanId,
-      fromStatus,
-      toStatus,
-      changedAt: now,
-      changedBy,
-      reason,
-      metadata: metadata || null,
-    });
+    // Record STATUS_CHANGE event
+    await recordStatusChange(loanId, fromStatus, toStatus, changedBy, reason, tx);
 
     return updated;
   });
 
   return { success: true, loan: updatedLoan };
-}
-
-/**
- * Get the status history for a loan
- */
-export async function getLoanStatusHistory(loanId: string) {
-  return db
-    .select()
-    .from(loanStatusHistory)
-    .where(eq(loanStatusHistory.loanId, loanId))
-    .orderBy(loanStatusHistory.changedAt);
-}
-
-/**
- * Record initial status when a loan is created
- * (Called during loan creation, not a transition)
- */
-export async function recordInitialStatus(
-  loanId: string,
-  status: LoanStatus,
-  changedBy?: string
-): Promise<void> {
-  await db.insert(loanStatusHistory).values({
-    loanId,
-    fromStatus: null,
-    toStatus: status,
-    changedAt: new Date(),
-    changedBy: changedBy || 'system',
-    reason: 'Loan created',
-  });
 }
