@@ -271,7 +271,7 @@ describe('LoanForm', () => {
   // REQUIREMENT: Form submission
   // ===========================================
   describe('Form Submission', () => {
-    it('submits valid form data with borrower', async () => {
+    it('submits valid form data with existing borrower', async () => {
       vi.mocked(loansApi.create).mockResolvedValue({
         ...mockLoan,
         id: 'new-id',
@@ -302,6 +302,41 @@ describe('LoanForm', () => {
         expect(callArg.termMonths).toBe(60);
         expect(callArg.status).toBe('DRAFT');
         expect(callArg.borrowerId).toBe('borrower-1');
+      });
+    });
+
+    it('submits form with new inline borrower', async () => {
+      vi.mocked(loansApi.create).mockResolvedValue({
+        ...mockLoan,
+        id: 'new-id',
+      });
+
+      const user = userEvent.setup();
+      renderCreateForm();
+
+      await user.type(screen.getByLabelText(/Principal Amount/i), '50000');
+      await user.type(screen.getByLabelText(/Interest Rate/i), '5.5');
+      await user.type(screen.getByLabelText(/Term/i), '60');
+
+      // Click to create new borrower
+      await user.click(screen.getByText(/Create new borrower/i));
+
+      // Fill in new borrower details
+      await user.type(screen.getByLabelText(/^Name$/i), 'New Borrower');
+      await user.type(screen.getByLabelText(/^Email$/i), 'new@example.com');
+      await user.type(screen.getByLabelText(/Phone/i), '555-9999');
+
+      await user.click(screen.getByRole('button', { name: /Create Loan/i }));
+
+      await waitFor(() => {
+        expect(loansApi.create).toHaveBeenCalled();
+        const callArg = vi.mocked(loansApi.create).mock.calls[0][0];
+        expect(callArg.newBorrower).toEqual({
+          name: 'New Borrower',
+          email: 'new@example.com',
+          phone: '555-9999',
+        });
+        expect(callArg.borrowerId).toBeUndefined();
       });
     });
 

@@ -96,6 +96,19 @@ describe('LoanList', () => {
     });
   });
 
+  it('displays borrower information', async () => {
+    vi.mocked(loansApi.getAll).mockResolvedValue(mockLoans);
+
+    render(<LoanList />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+      expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+      expect(screen.getByText('Bob Smith')).toBeInTheDocument();
+      expect(screen.getByText('bob@example.com')).toBeInTheDocument();
+    });
+  });
+
   // ===========================================
   // REQUIREMENT: Handle loading states cleanly
   // ===========================================
