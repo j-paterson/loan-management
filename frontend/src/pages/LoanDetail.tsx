@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { paymentsApi } from '../api/payments';
-import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm } from '../components';
+import { borrowersApi } from '../api/borrowers';
+import { Card, CardHeader, CardBody, CardFooter, StatusBadge, Button, ButtonLink, PaymentForm, Breadcrumbs } from '../components';
+import type { BreadcrumbItem } from '../components';
 import { formatAmount, formatRate } from '../utils/format';
 
 export default function LoanDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+
+  // Check if we navigated from a borrower page
+  const fromBorrower = searchParams.get('from') === 'borrower';
+  const borrowerId = searchParams.get('borrowerId');
 
   const { data: loan, isLoading, error } = useQuery({
     queryKey: ['loans', id],
@@ -23,6 +30,28 @@ export default function LoanDetail() {
     queryFn: () => paymentsApi.getByLoanId(id!),
     enabled: !!id,
   });
+
+  // Fetch borrower data if we came from a borrower page
+  const { data: sourceBorrower } = useQuery({
+    queryKey: ['borrowers', borrowerId],
+    queryFn: () => borrowersApi.getById(borrowerId!),
+    enabled: fromBorrower && !!borrowerId,
+  });
+
+  // Build breadcrumbs based on navigation context
+  const breadcrumbs = useMemo((): BreadcrumbItem[] => {
+    if (fromBorrower && sourceBorrower) {
+      return [
+        { label: 'Borrowers', to: '/borrowers' },
+        { label: sourceBorrower.name, to: `/borrowers/${borrowerId}` },
+        { label: 'Loan Details' },
+      ];
+    }
+    return [
+      { label: 'Loans', to: '/loans' },
+      { label: 'Loan Details' },
+    ];
+  }, [fromBorrower, sourceBorrower, borrowerId]);
 
   const deleteMutation = useMutation({
     mutationFn: () => loansApi.delete(id!),
@@ -70,11 +99,7 @@ export default function LoanDetail() {
 
   return (
     <div>
-      <div className="mb-6">
-        <Link to="/loans" className="text-blue-600 hover:underline text-sm">
-          &larr; Back to loans
-        </Link>
-      </div>
+      <Breadcrumbs items={breadcrumbs} />
 
       <Card>
         <CardHeader actions={<StatusBadge status={loan.status} size="md" />}>
