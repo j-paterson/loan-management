@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { loansApi } from '../api/loans';
 import { borrowersApi } from '../api/borrowers';
 import { parseAmount, parseRate, MICROS_PER_DOLLAR } from '../lib/money';
+import {
+  PRINCIPAL_MAX_DOLLARS,
+  RATE_MIN_PERCENT,
+  RATE_MAX_PERCENT,
+  RATE_WARNING_PERCENT,
+  TERM_MIN_MONTHS,
+  TERM_MAX_MONTHS,
+} from '../lib/validation';
+import { Card, CardHeader, CardBody, FormField, inputStyles, Button, ButtonLink } from '../components';
 import type { CreateLoanInput, UpdateLoanInput } from '../types/loan';
 
 interface FormData {
@@ -12,7 +21,6 @@ interface FormData {
   termMonths: string;
   status: 'DRAFT' | 'ACTIVE';
   borrowerId: string;
-  // New borrower fields
   newBorrowerName: string;
   newBorrowerEmail: string;
   newBorrowerPhone: string;
@@ -98,25 +106,24 @@ export default function LoanForm() {
     const principal = parseFloat(form.principalAmount);
     if (!form.principalAmount || isNaN(principal) || principal <= 0) {
       newErrors.principalAmount = 'Principal amount must be a positive number';
-    } else if (principal > 10_000_000) {
-      newErrors.principalAmount = 'Principal amount cannot exceed $10,000,000';
+    } else if (principal > PRINCIPAL_MAX_DOLLARS) {
+      newErrors.principalAmount = `Principal amount cannot exceed $${PRINCIPAL_MAX_DOLLARS.toLocaleString()}`;
     }
 
     const rate = parseFloat(form.interestRate);
-    if (!form.interestRate || isNaN(rate) || rate < 0) {
+    if (!form.interestRate || isNaN(rate) || rate < RATE_MIN_PERCENT) {
       newErrors.interestRate = 'Interest rate must be 0 or greater';
-    } else if (rate > 100) {
-      newErrors.interestRate = 'Interest rate cannot exceed 100%';
+    } else if (rate > RATE_MAX_PERCENT) {
+      newErrors.interestRate = `Interest rate cannot exceed ${RATE_MAX_PERCENT}%`;
     }
 
     const term = parseInt(form.termMonths);
-    if (!form.termMonths || isNaN(term) || term < 1) {
-      newErrors.termMonths = 'Term must be at least 1 month';
-    } else if (term > 600) {
-      newErrors.termMonths = 'Term cannot exceed 600 months';
+    if (!form.termMonths || isNaN(term) || term < TERM_MIN_MONTHS) {
+      newErrors.termMonths = `Term must be at least ${TERM_MIN_MONTHS} month`;
+    } else if (term > TERM_MAX_MONTHS) {
+      newErrors.termMonths = `Term cannot exceed ${TERM_MAX_MONTHS} months`;
     }
 
-    // Borrower validation (required for new loans)
     if (!isEditing) {
       if (isCreatingNewBorrower) {
         if (!form.newBorrowerName.trim()) {
@@ -140,18 +147,16 @@ export default function LoanForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validate()) return;
 
     if (isEditing) {
-      const data: UpdateLoanInput = {
+      updateMutation.mutate({
         principalAmountMicros: parseAmount(form.principalAmount),
         interestRateBps: parseRate(form.interestRate),
         termMonths: parseInt(form.termMonths),
         status: form.status,
         borrowerId: form.borrowerId,
-      };
-      updateMutation.mutate(data);
+      });
     } else {
       const data: CreateLoanInput = {
         principalAmountMicros: parseAmount(form.principalAmount),
@@ -201,221 +206,172 @@ export default function LoanForm() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden max-w-xl">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <Card className="max-w-xl">
+        <CardHeader>
           <h1 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Edit Loan' : 'Create New Loan'}
           </h1>
-        </div>
+        </CardHeader>
 
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
-          <div>
-            <label htmlFor="principalAmount" className="block text-sm font-medium text-gray-700">
-              Principal Amount ($)
-            </label>
-            <input
-              type="number"
-              id="principalAmount"
-              value={form.principalAmount}
-              onChange={handleChange('principalAmount')}
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                errors.principalAmount ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="50000"
-              step="0.01"
-              min="0"
-            />
-            {errors.principalAmount && (
-              <p className="mt-1 text-sm text-red-600">{errors.principalAmount}</p>
-            )}
-          </div>
+        <CardBody>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormField label="Principal Amount ($)" htmlFor="principalAmount" error={errors.principalAmount}>
+              <input
+                type="number"
+                id="principalAmount"
+                value={form.principalAmount}
+                onChange={handleChange('principalAmount')}
+                className={inputStyles(!!errors.principalAmount)}
+                placeholder="50000"
+                step="0.01"
+                min="0"
+              />
+            </FormField>
 
-          <div>
-            <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700">
-              Interest Rate (% APR)
-            </label>
-            <input
-              type="number"
-              id="interestRate"
-              value={form.interestRate}
-              onChange={handleChange('interestRate')}
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                errors.interestRate ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="5.25"
-              step="0.01"
-              min="0"
-              max="100"
-            />
-            {errors.interestRate && (
-              <p className="mt-1 text-sm text-red-600">{errors.interestRate}</p>
-            )}
-          </div>
+            <FormField label="Interest Rate (% APR)" htmlFor="interestRate" error={errors.interestRate}>
+              <input
+                type="number"
+                id="interestRate"
+                value={form.interestRate}
+                onChange={handleChange('interestRate')}
+                className={inputStyles(!!errors.interestRate)}
+                placeholder="5.25"
+                step="0.01"
+                min={RATE_MIN_PERCENT}
+                max={RATE_MAX_PERCENT}
+              />
+              {!errors.interestRate && parseFloat(form.interestRate) > RATE_WARNING_PERCENT && (
+                <p className="mt-1 text-sm text-amber-600">
+                  Interest rates above {RATE_WARNING_PERCENT}% are unusually high. Please verify this is correct.
+                </p>
+              )}
+            </FormField>
 
-          <div>
-            <label htmlFor="termMonths" className="block text-sm font-medium text-gray-700">
-              Term (months)
-            </label>
-            <input
-              type="number"
-              id="termMonths"
-              value={form.termMonths}
-              onChange={handleChange('termMonths')}
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                errors.termMonths ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="60"
-              min="1"
-              max="600"
-            />
-            {errors.termMonths && (
-              <p className="mt-1 text-sm text-red-600">{errors.termMonths}</p>
-            )}
-          </div>
+            <FormField label="Term (months)" htmlFor="termMonths" error={errors.termMonths}>
+              <input
+                type="number"
+                id="termMonths"
+                value={form.termMonths}
+                onChange={handleChange('termMonths')}
+                className={inputStyles(!!errors.termMonths)}
+                placeholder="60"
+                min={TERM_MIN_MONTHS}
+                max={TERM_MAX_MONTHS}
+              />
+            </FormField>
 
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              id="status"
-              value={form.status}
-              onChange={handleChange('status')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="ACTIVE">Active</option>
-            </select>
-          </div>
+            <FormField label="Status" htmlFor="status">
+              <select
+                id="status"
+                value={form.status}
+                onChange={handleChange('status')}
+                className={inputStyles(false)}
+              >
+                <option value="DRAFT">Draft</option>
+                <option value="ACTIVE">Active</option>
+              </select>
+            </FormField>
 
-          {/* Borrower Section */}
-          <div className="border-t border-gray-200 pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Borrower {!isEditing && <span className="text-red-500">*</span>}
-              </label>
-              {!isEditing && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreatingNewBorrower(!isCreatingNewBorrower);
-                    setErrors({ ...errors, borrower: undefined, newBorrowerName: undefined, newBorrowerEmail: undefined });
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {isCreatingNewBorrower ? 'Select existing borrower' : 'Create new borrower'}
-                </button>
+            {/* Borrower Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-medium text-gray-700">
+                  Borrower {!isEditing && <span className="text-red-500">*</span>}
+                </label>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewBorrower(!isCreatingNewBorrower);
+                      setErrors({ ...errors, borrower: undefined, newBorrowerName: undefined, newBorrowerEmail: undefined });
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {isCreatingNewBorrower ? 'Select existing borrower' : 'Create new borrower'}
+                  </button>
+                )}
+              </div>
+
+              {isCreatingNewBorrower && !isEditing ? (
+                <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                  <FormField label="Name" htmlFor="newBorrowerName" error={errors.newBorrowerName}>
+                    <input
+                      type="text"
+                      id="newBorrowerName"
+                      value={form.newBorrowerName}
+                      onChange={handleChange('newBorrowerName')}
+                      className={inputStyles(!!errors.newBorrowerName)}
+                      placeholder="John Doe"
+                    />
+                  </FormField>
+
+                  <FormField label="Email" htmlFor="newBorrowerEmail" error={errors.newBorrowerEmail}>
+                    <input
+                      type="email"
+                      id="newBorrowerEmail"
+                      value={form.newBorrowerEmail}
+                      onChange={handleChange('newBorrowerEmail')}
+                      className={inputStyles(!!errors.newBorrowerEmail)}
+                      placeholder="john@example.com"
+                    />
+                  </FormField>
+
+                  <FormField label="Phone (optional)" htmlFor="newBorrowerPhone">
+                    <input
+                      type="tel"
+                      id="newBorrowerPhone"
+                      value={form.newBorrowerPhone}
+                      onChange={handleChange('newBorrowerPhone')}
+                      className={inputStyles(false)}
+                      placeholder="(555) 123-4567"
+                    />
+                  </FormField>
+                </div>
+              ) : (
+                <FormField label="" htmlFor="borrowerId" error={errors.borrower}>
+                  <select
+                    id="borrowerId"
+                    value={form.borrowerId}
+                    onChange={handleChange('borrowerId')}
+                    className={inputStyles(!!errors.borrower)}
+                  >
+                    <option value="">Select a borrower...</option>
+                    {borrowers.map((borrower) => (
+                      <option key={borrower.id} value={borrower.id}>
+                        {borrower.name} ({borrower.email})
+                      </option>
+                    ))}
+                  </select>
+                  {!isEditing && borrowers.length === 0 && (
+                    <p className="mt-2 text-sm text-gray-500">
+                      No borrowers found. Click "Create new borrower" above.
+                    </p>
+                  )}
+                </FormField>
               )}
             </div>
 
-            {isCreatingNewBorrower && !isEditing ? (
-              <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-                <div>
-                  <label htmlFor="newBorrowerName" className="block text-sm font-medium text-gray-700">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="newBorrowerName"
-                    value={form.newBorrowerName}
-                    onChange={handleChange('newBorrowerName')}
-                    className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                      errors.newBorrowerName ? 'border-red-500' : 'border-gray-300'
-                    } focus:ring-blue-500 focus:border-blue-500`}
-                    placeholder="John Doe"
-                  />
-                  {errors.newBorrowerName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.newBorrowerName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="newBorrowerEmail" className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="newBorrowerEmail"
-                    value={form.newBorrowerEmail}
-                    onChange={handleChange('newBorrowerEmail')}
-                    className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                      errors.newBorrowerEmail ? 'border-red-500' : 'border-gray-300'
-                    } focus:ring-blue-500 focus:border-blue-500`}
-                    placeholder="john@example.com"
-                  />
-                  {errors.newBorrowerEmail && (
-                    <p className="mt-1 text-sm text-red-600">{errors.newBorrowerEmail}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="newBorrowerPhone" className="block text-sm font-medium text-gray-700">
-                    Phone (optional)
-                  </label>
-                  <input
-                    type="tel"
-                    id="newBorrowerPhone"
-                    value={form.newBorrowerPhone}
-                    onChange={handleChange('newBorrowerPhone')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <select
-                  id="borrowerId"
-                  value={form.borrowerId}
-                  onChange={handleChange('borrowerId')}
-                  className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border ${
-                    errors.borrower ? 'border-red-500' : 'border-gray-300'
-                  } focus:ring-blue-500 focus:border-blue-500`}
-                >
-                  <option value="">Select a borrower...</option>
-                  {borrowers.map((borrower) => (
-                    <option key={borrower.id} value={borrower.id}>
-                      {borrower.name} ({borrower.email})
-                    </option>
-                  ))}
-                </select>
-                {errors.borrower && (
-                  <p className="mt-1 text-sm text-red-600">{errors.borrower}</p>
-                )}
-                {!isEditing && borrowers.length === 0 && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    No borrowers found. Click "Create new borrower" above.
-                  </p>
-                )}
+            {mutation.error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-800 text-sm">{mutation.error.message}</p>
               </div>
             )}
-          </div>
 
-          {mutation.error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-800 text-sm">{mutation.error.message}</p>
+            <div className="flex gap-3">
+              <Button
+                type="submit"
+                isLoading={mutation.isPending}
+                loadingText={isEditing ? 'Saving...' : 'Creating...'}
+              >
+                {isEditing ? 'Save Changes' : 'Create Loan'}
+              </Button>
+              <ButtonLink to="/loans" variant="secondary">
+                Cancel
+              </ButtonLink>
             </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {mutation.isPending
-                ? isEditing ? 'Saving...' : 'Creating...'
-                : isEditing ? 'Save Changes' : 'Create Loan'}
-            </button>
-            <Link
-              to="/loans"
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </div>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 }

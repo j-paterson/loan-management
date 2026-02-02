@@ -3,6 +3,7 @@ import { eq, isNull, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { borrowers } from '../db/schema.js';
+import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from '../lib/validation.js';
 
 interface IdParams {
   id: string;
@@ -11,9 +12,9 @@ interface IdParams {
 const router = Router();
 
 const createBorrowerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
+  name: z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH),
   email: z.string().email('Invalid email address'),
-  phone: z.string().max(50).optional(),
+  phone: z.string().max(PHONE_MAX_LENGTH).optional(),
 });
 
 const updateBorrowerSchema = createBorrowerSchema.partial();

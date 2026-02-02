@@ -3,7 +3,16 @@ import { eq, isNull, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { loans, borrowers } from '../db/schema.js';
-import { MICROS_PER_DOLLAR } from '../lib/money.js';
+import {
+  PRINCIPAL_MAX_MICROS,
+  RATE_MIN_BPS,
+  RATE_MAX_BPS,
+  TERM_MIN_MONTHS,
+  TERM_MAX_MONTHS,
+  NAME_MAX_LENGTH,
+  PHONE_MAX_LENGTH,
+  LOAN_STATUSES,
+} from '../lib/validation.js';
 
 // Type for routes with :id parameter
 interface IdParams {
@@ -12,14 +21,11 @@ interface IdParams {
 
 const router = Router();
 
-// Max principal: $10,000,000 in micro-units
-const MAX_PRINCIPAL_MICROS = 10_000_000 * MICROS_PER_DOLLAR;
-
 // Borrower schema for inline creation
 const newBorrowerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
+  name: z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH),
   email: z.string().email('Invalid email address'),
-  phone: z.string().max(50).optional(),
+  phone: z.string().max(PHONE_MAX_LENGTH).optional(),
 });
 
 // Validation schemas - all integers
@@ -28,16 +34,16 @@ const createLoanSchema = z.object({
   principalAmountMicros: z.number()
     .int('Amount must be an integer')
     .positive('Amount must be positive')
-    .max(MAX_PRINCIPAL_MICROS, 'Amount too large'),
+    .max(PRINCIPAL_MAX_MICROS, 'Amount too large'),
   interestRateBps: z.number()
     .int('Rate must be an integer')
-    .min(0, 'Rate cannot be negative')
-    .max(10000, 'Rate cannot exceed 100%'), // 10000 bps = 100%
+    .min(RATE_MIN_BPS, 'Rate cannot be negative')
+    .max(RATE_MAX_BPS, 'Rate cannot exceed 100%'),
   termMonths: z.number()
     .int('Term must be a whole number')
-    .min(1, 'Term must be at least 1 month')
-    .max(600, 'Term cannot exceed 600 months'),
-  status: z.enum(['DRAFT', 'ACTIVE']).optional(),
+    .min(TERM_MIN_MONTHS, 'Term must be at least 1 month')
+    .max(TERM_MAX_MONTHS, 'Term cannot exceed 600 months'),
+  status: z.enum(LOAN_STATUSES).optional(),
   borrowerId: z.string().uuid().optional(),
   newBorrower: newBorrowerSchema.optional(),
 }).refine(
@@ -49,19 +55,19 @@ const updateLoanSchema = z.object({
   principalAmountMicros: z.number()
     .int('Amount must be an integer')
     .positive('Amount must be positive')
-    .max(MAX_PRINCIPAL_MICROS, 'Amount too large')
+    .max(PRINCIPAL_MAX_MICROS, 'Amount too large')
     .optional(),
   interestRateBps: z.number()
     .int('Rate must be an integer')
-    .min(0, 'Rate cannot be negative')
-    .max(10000, 'Rate cannot exceed 100%')
+    .min(RATE_MIN_BPS, 'Rate cannot be negative')
+    .max(RATE_MAX_BPS, 'Rate cannot exceed 100%')
     .optional(),
   termMonths: z.number()
     .int('Term must be a whole number')
-    .min(1, 'Term must be at least 1 month')
-    .max(600, 'Term cannot exceed 600 months')
+    .min(TERM_MIN_MONTHS, 'Term must be at least 1 month')
+    .max(TERM_MAX_MONTHS, 'Term cannot exceed 600 months')
     .optional(),
-  status: z.enum(['DRAFT', 'ACTIVE']).optional(),
+  status: z.enum(LOAN_STATUSES).optional(),
   borrowerId: z.string().uuid().optional(),
 });
 
