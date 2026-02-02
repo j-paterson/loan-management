@@ -12,7 +12,7 @@ import {
   TERM_MIN_MONTHS,
   TERM_MAX_MONTHS,
 } from '../lib/validation';
-import { Card, CardHeader, CardBody, FormField, inputStyles, Button, ButtonLink } from '../components';
+import { Card, CardHeader, CardBody, FormField, inputStyles, Button, ButtonLink, BorrowerSearch } from '../components';
 import type { CreateLoanInput, UpdateLoanInput } from '../types/loan';
 
 interface FormData {
@@ -21,9 +21,12 @@ interface FormData {
   termMonths: string;
   status: 'DRAFT' | 'ACTIVE';
   borrowerId: string;
-  newBorrowerName: string;
-  newBorrowerEmail: string;
-  newBorrowerPhone: string;
+}
+
+interface NewBorrowerData {
+  name: string;
+  email: string;
+  phone: string;
 }
 
 interface FormErrors {
@@ -31,8 +34,6 @@ interface FormErrors {
   interestRate?: string;
   termMonths?: string;
   borrower?: string;
-  newBorrowerName?: string;
-  newBorrowerEmail?: string;
 }
 
 export default function LoanForm() {
@@ -47,13 +48,10 @@ export default function LoanForm() {
     termMonths: '',
     status: 'DRAFT',
     borrowerId: '',
-    newBorrowerName: '',
-    newBorrowerEmail: '',
-    newBorrowerPhone: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isCreatingNewBorrower, setIsCreatingNewBorrower] = useState(false);
+  const [newBorrower, setNewBorrower] = useState<NewBorrowerData | null>(null);
 
   const { data: existingLoan, isLoading: isLoadingLoan } = useQuery({
     queryKey: ['loans', id],
@@ -76,9 +74,6 @@ export default function LoanForm() {
           ? existingLoan.status
           : 'DRAFT',
         borrowerId: existingLoan.borrowerId,
-        newBorrowerName: '',
-        newBorrowerEmail: '',
-        newBorrowerPhone: '',
       });
     }
   }, [existingLoan]);
@@ -125,19 +120,8 @@ export default function LoanForm() {
     }
 
     if (!isEditing) {
-      if (isCreatingNewBorrower) {
-        if (!form.newBorrowerName.trim()) {
-          newErrors.newBorrowerName = 'Name is required';
-        }
-        if (!form.newBorrowerEmail.trim()) {
-          newErrors.newBorrowerEmail = 'Email is required';
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.newBorrowerEmail)) {
-          newErrors.newBorrowerEmail = 'Invalid email address';
-        }
-      } else {
-        if (!form.borrowerId) {
-          newErrors.borrower = 'Please select a borrower or create a new one';
-        }
+      if (!form.borrowerId && !newBorrower) {
+        newErrors.borrower = 'Please select a borrower or create a new one';
       }
     }
 
@@ -165,11 +149,11 @@ export default function LoanForm() {
         status: form.status,
       };
 
-      if (isCreatingNewBorrower) {
+      if (newBorrower) {
         data.newBorrower = {
-          name: form.newBorrowerName.trim(),
-          email: form.newBorrowerEmail.trim(),
-          phone: form.newBorrowerPhone.trim() || undefined,
+          name: newBorrower.name,
+          email: newBorrower.email,
+          phone: newBorrower.phone || undefined,
         };
       } else {
         data.borrowerId = form.borrowerId;
@@ -274,80 +258,35 @@ export default function LoanForm() {
 
             {/* Borrower Section */}
             <div className="border-t border-gray-200 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Borrower {!isEditing && <span className="text-red-500">*</span>}
-                </label>
-                {!isEditing && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingNewBorrower(!isCreatingNewBorrower);
-                      setErrors({ ...errors, borrower: undefined, newBorrowerName: undefined, newBorrowerEmail: undefined });
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    {isCreatingNewBorrower ? 'Select existing borrower' : 'Create new borrower'}
-                  </button>
-                )}
-              </div>
-
-              {isCreatingNewBorrower && !isEditing ? (
-                <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-                  <FormField label="Name" htmlFor="newBorrowerName" error={errors.newBorrowerName}>
-                    <input
-                      type="text"
-                      id="newBorrowerName"
-                      value={form.newBorrowerName}
-                      onChange={handleChange('newBorrowerName')}
-                      className={inputStyles(!!errors.newBorrowerName)}
-                      placeholder="John Doe"
-                    />
-                  </FormField>
-
-                  <FormField label="Email" htmlFor="newBorrowerEmail" error={errors.newBorrowerEmail}>
-                    <input
-                      type="email"
-                      id="newBorrowerEmail"
-                      value={form.newBorrowerEmail}
-                      onChange={handleChange('newBorrowerEmail')}
-                      className={inputStyles(!!errors.newBorrowerEmail)}
-                      placeholder="john@example.com"
-                    />
-                  </FormField>
-
-                  <FormField label="Phone (optional)" htmlFor="newBorrowerPhone">
-                    <input
-                      type="tel"
-                      id="newBorrowerPhone"
-                      value={form.newBorrowerPhone}
-                      onChange={handleChange('newBorrowerPhone')}
-                      className={inputStyles(false)}
-                      placeholder="(555) 123-4567"
-                    />
-                  </FormField>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Borrower {!isEditing && <span className="text-red-500">*</span>}
+              </label>
+              <BorrowerSearch
+                borrowers={borrowers}
+                selectedBorrowerId={form.borrowerId}
+                onSelectBorrower={(borrowerId) => {
+                  setForm({ ...form, borrowerId });
+                  setNewBorrower(null);
+                  if (errors.borrower) {
+                    setErrors({ ...errors, borrower: undefined });
+                  }
+                }}
+                onCreateBorrower={(data) => {
+                  setNewBorrower(data);
+                  setForm({ ...form, borrowerId: '' });
+                  if (errors.borrower) {
+                    setErrors({ ...errors, borrower: undefined });
+                  }
+                }}
+                error={errors.borrower}
+                disabled={isEditing}
+              />
+              {newBorrower && (
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    New borrower will be created: <strong>{newBorrower.name}</strong> ({newBorrower.email})
+                  </p>
                 </div>
-              ) : (
-                <FormField label="" htmlFor="borrowerId" error={errors.borrower}>
-                  <select
-                    id="borrowerId"
-                    value={form.borrowerId}
-                    onChange={handleChange('borrowerId')}
-                    className={inputStyles(!!errors.borrower)}
-                  >
-                    <option value="">Select a borrower...</option>
-                    {borrowers.map((borrower) => (
-                      <option key={borrower.id} value={borrower.id}>
-                        {borrower.name} ({borrower.email})
-                      </option>
-                    ))}
-                  </select>
-                  {!isEditing && borrowers.length === 0 && (
-                    <p className="mt-2 text-sm text-gray-500">
-                      No borrowers found. Click "Create new borrower" above.
-                    </p>
-                  )}
-                </FormField>
               )}
             </div>
 
