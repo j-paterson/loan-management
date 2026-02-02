@@ -31,6 +31,75 @@ Access the app at http://localhost:5173 (API at http://localhost:3001)
 
 Copy `backend/.env.example` to `backend/.env` for local development.
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND (React)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  pages/                    hooks/                   api/                    │
+│  ├── LoanList.tsx         ├── useForm.ts           ├── client.ts           │
+│  ├── LoanDetail.tsx       └── useResourceMutation  ├── loans.ts            │
+│  ├── LoanForm.tsx              .ts                 └── borrowers.ts        │
+│  ├── BorrowerList.tsx                                                       │
+│  └── BorrowerForm.tsx     lib/                     components/              │
+│                           ├── money.ts             └── StatusBadge.tsx      │
+│                           └── validation.ts                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ HTTP (REST)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             BACKEND (Express)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  routes/                   lib/                     db/                     │
+│  ├── loans.ts             ├── money.ts             ├── schema.ts           │
+│  └── borrowers.ts         ├── validation.ts        ├── index.ts            │
+│       │                   └── schemas.ts           └── seed.ts             │
+│       │                         │                                          │
+│       └─────────────────────────┘                                          │
+│              (shared Zod schemas)                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ Drizzle ORM
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            DATABASE (PostgreSQL)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  borrowers                              loans                               │
+│  ├── id (uuid, PK)                     ├── id (uuid, PK)                   │
+│  ├── name                              ├── borrower_id (FK → borrowers)    │
+│  ├── email                             ├── principal_amount_micros         │
+│  ├── phone                             ├── interest_rate_bps               │
+│  ├── created_at                        ├── term_months                     │
+│  ├── updated_at                        ├── status (DRAFT | ACTIVE)         │
+│  └── deleted_at                        ├── created_at                      │
+│                                        ├── updated_at                      │
+│                                        └── deleted_at                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Layer Responsibilities
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Pages** | Route components, form handling, data fetching via React Query |
+| **Hooks** | Reusable form state (`useForm`) and mutation logic (`useResourceMutation`) |
+| **API Client** | HTTP fetch wrapper, response parsing, type-safe API calls |
+| **Lib** | Shared utilities: money conversion, validation constants, Zod schemas |
+| **Routes** | Express handlers: business logic, response formatting |
+| **DB** | Drizzle schema, migrations, seed data |
+
+### Data Flow
+
+1. **User Action** → Page component handles event
+2. **Mutation/Query** → Custom hook triggers API call via React Query
+3. **HTTP Request** → API client sends typed request to backend
+4. **Validation** → Zod schema validates request body (shared constants)
+5. **Database** → Drizzle ORM executes query
+6. **Response** → Consistent `{ data }` or `{ error }` format returned
+7. **Cache Update** → React Query invalidates relevant queries
+
 ## Key Technical Decisions
 
 ### Schema Design
@@ -57,7 +126,29 @@ Copy `backend/.env.example` to `backend/.env` for local development.
 - Standard RESTful endpoints with consistent response format: `{ data: ... }` or `{ error: { message, details } }`
 - Validation errors return 400 with Zod error details
 - All list endpoints exclude soft-deleted records
-   
+
+### Input Validation & Error Handling
+
+All API inputs are validated server-side with Zod schemas. The API returns appropriate status codes and clear error messages:
+
+| Input | Validation | Error Response |
+|-------|------------|----------------|
+| **Principal amount** | Integer, $1 - $10,000,000 | 400: "Amount must be at least $1" / "Amount cannot exceed $10,000,000" |
+| **Interest rate** | Integer, 0% - 50% (bps) | 400: "Rate cannot be negative" / "Rate cannot exceed 50%" |
+| **Term** | Integer, 1 - 600 months | 400: "Term must be at least 1 month" / "Term cannot exceed 600 months" |
+| **Borrower** | Required on create | 400: "Either borrowerId or newBorrower is required" |
+| **Email** | Valid format, max 255 chars | 400: "Invalid email address" |
+| **UUID params** | Valid UUID format | 400: "Invalid loan ID format" / "Invalid borrower ID format" |
+| **Foreign keys** | Must reference existing record | 400: "Borrower not found" |
+
+**Edge cases handled:**
+- Invalid JSON body → 400 with parse error
+- Wrong data types (string instead of number) → 400 with type error
+- Non-existent resources → 404
+- Invalid UUID in URL params → 400 (prevents DB errors)
+- Updating loan with non-existent borrowerId → 400
+- All unhandled errors → 500 with generic message (details hidden in production)
+
 ## Assumptions Made
 
 1. **Single currency (USD)** — All monetary amounts are in US dollars
@@ -79,14 +170,55 @@ Given more time I would implement:
 ## Testing
 
 ```bash
-# Backend (42 tests)
+# Backend (38 tests)
 cd backend && npm test
 
 # Frontend (41 tests)
 cd frontend && npm test
 ```
 
-Tests cover API endpoints, validation rules, component rendering, form interactions, and error states.
+### Test Categories
+
+| Category | Description | Examples |
+|----------|-------------|----------|
+| **Unit** | Pure functions with no dependencies | `money.test.ts` - parse/format, arithmetic |
+| **API** | HTTP request/response validation | `loans.test.ts` - endpoints, status codes, validation |
+| **Component** | React component rendering and state | `LoanList.test.tsx` - display, loading, error states |
+| **Integration** | User interactions and form flows | `LoanForm.test.tsx` - validation, submission |
+
+### Backend Test Structure
+
+```
+describe('Resource API')
+  describe('POST /resource')     → Create operations + validation
+  describe('GET /resource')      → List operations
+  describe('GET /resource/:id')  → Single resource + 404/400 handling
+  describe('PATCH /resource/:id') → Update operations + validation
+  describe('DELETE /resource/:id') → Soft delete + 404/400 handling
+  describe('Response Format')    → Consistent { data } / { error } structure
+```
+
+### What We Test
+
+**Backend:**
+- Input validation (required fields, types, ranges, formats)
+- Error responses (400 validation, 404 not found, invalid UUID)
+- Response structure consistency
+- Edge cases (zero values, max limits, empty payloads)
+
+**Frontend:**
+- Component rendering with mock data
+- Loading, error, and empty states
+- Form validation feedback
+- User interactions (submit, cancel, field changes)
+- API integration (correct payload transformation)
+
+### Test Principles
+
+1. **One assertion focus** — Each test verifies one behavior
+2. **Descriptive names** — Test names describe the expected behavior
+3. **Mock at boundaries** — Mock APIs and DB, not internal functions
+4. **No redundancy** — Each scenario tested once in the most appropriate place
 
 ## AI Tool Usage
 

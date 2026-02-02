@@ -224,7 +224,7 @@ describe('LoanForm', () => {
       renderCreateForm();
 
       const input = screen.getByLabelText(/Interest Rate/i);
-      expect(input).toHaveAttribute('max', '100');
+      expect(input).toHaveAttribute('max', '50');
     });
 
     it('shows error for missing term', async () => {

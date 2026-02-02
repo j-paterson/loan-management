@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { loans, borrowers } from './schema.js';
+import { loans, borrowers, payments } from './schema.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -68,8 +68,26 @@ async function main() {
     borrowerId: insertedBorrowers[index % insertedBorrowers.length].id,
   }));
 
-  await db.insert(loans).values(loansWithBorrowers);
-  console.log(`Inserted ${sampleLoans.length} sample loans`);
+  const insertedLoans = await db.insert(loans).values(loansWithBorrowers).returning();
+  console.log(`Inserted ${insertedLoans.length} sample loans`);
+
+  // Insert sample payments for ACTIVE loans
+  // Amounts in micro-units: $5,000 = 50000000
+  const samplePayments = [
+    // Payments for first ACTIVE loan ($50,000 principal)
+    { loanId: insertedLoans[0].id, amountMicros: 50000000, paidAt: new Date('2024-01-15') },  // $5,000
+    { loanId: insertedLoans[0].id, amountMicros: 50000000, paidAt: new Date('2024-02-15') },  // $5,000
+    { loanId: insertedLoans[0].id, amountMicros: 50000000, paidAt: new Date('2024-03-15') },  // $5,000
+    // Payments for second ACTIVE loan ($25,000 principal)
+    { loanId: insertedLoans[1].id, amountMicros: 25000000, paidAt: new Date('2024-01-20') },  // $2,500
+    { loanId: insertedLoans[1].id, amountMicros: 25000000, paidAt: new Date('2024-02-20') },  // $2,500
+    // Payments for fifth ACTIVE loan ($75,000 principal)
+    { loanId: insertedLoans[4].id, amountMicros: 100000000, paidAt: new Date('2024-01-01') }, // $10,000
+    { loanId: insertedLoans[4].id, amountMicros: 100000000, paidAt: new Date('2024-02-01') }, // $10,000
+  ];
+
+  await db.insert(payments).values(samplePayments);
+  console.log(`Inserted ${samplePayments.length} sample payments`);
 
   await client.end();
   process.exit(0);

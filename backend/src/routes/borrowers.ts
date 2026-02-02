@@ -1,22 +1,18 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, and } from 'drizzle-orm';
-import { z } from 'zod';
 import { db } from '../db/index.js';
 import { borrowers } from '../db/schema.js';
+import {
+  uuidParamSchema,
+  createBorrowerSchema,
+  updateBorrowerSchema,
+} from '../lib/schemas.js';
 
 interface IdParams {
   id: string;
 }
 
 const router = Router();
-
-const createBorrowerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().max(50).optional(),
-});
-
-const updateBorrowerSchema = createBorrowerSchema.partial();
 
 // GET /borrowers - List all borrowers
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -36,6 +32,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // GET /borrowers/:id - Get single borrower
 router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid borrower ID format' } });
+    }
+
     const result = await db
       .select()
       .from(borrowers)
@@ -83,6 +84,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 // PATCH /borrowers/:id - Update borrower
 router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid borrower ID format' } });
+    }
+
     const parsed = updateBorrowerSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -130,6 +136,11 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
 // DELETE /borrowers/:id - Soft delete borrower
 router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid borrower ID format' } });
+    }
+
     const existing = await db
       .select()
       .from(borrowers)

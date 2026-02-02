@@ -37,3 +37,21 @@ export const loans = pgTable('loans', {
 });
 
 export type Loan = typeof loans.$inferSelect;
+
+/**
+ * Payments table
+ *
+ * Tracks payments made against loans.
+ * amountMicros uses the same micro-unit format as loan amounts.
+ */
+export const payments = pgTable('payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  loanId: uuid('loan_id').notNull().references(() => loans.id),
+  amountMicros: bigint('amount_micros', { mode: 'number' }).notNull(),
+  paidAt: timestamp('paid_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+});
+
+export type Payment = typeof payments.$inferSelect;

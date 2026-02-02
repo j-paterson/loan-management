@@ -16,6 +16,7 @@ export interface Loan {
   interestRateBps: number;
   termMonths: number;
   status: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+  remainingBalanceMicros: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

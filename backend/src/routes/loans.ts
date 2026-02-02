@@ -1,9 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, and } from 'drizzle-orm';
-import { z } from 'zod';
+import { eq, isNull, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { loans, borrowers } from '../db/schema.js';
-import { MICROS_PER_DOLLAR } from '../lib/money.js';
+import { loans, borrowers, payments } from '../db/schema.js';
+import {
+  uuidParamSchema,
+  createLoanSchema,
+  updateLoanSchema,
+} from '../lib/schemas.js';
+import { money, micros, subtractMoney } from '../lib/money.js';
 
 // Type for routes with :id parameter
 interface IdParams {
@@ -12,58 +16,14 @@ interface IdParams {
 
 const router = Router();
 
-// Max principal: $10,000,000 in micro-units
-const MAX_PRINCIPAL_MICROS = 10_000_000 * MICROS_PER_DOLLAR;
-
-// Borrower schema for inline creation
-const newBorrowerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().max(50).optional(),
-});
-
-// Validation schemas - all integers
-// Accepts either borrowerId (existing) or newBorrower (create inline)
-const createLoanSchema = z.object({
-  principalAmountMicros: z.number()
-    .int('Amount must be an integer')
-    .positive('Amount must be positive')
-    .max(MAX_PRINCIPAL_MICROS, 'Amount too large'),
-  interestRateBps: z.number()
-    .int('Rate must be an integer')
-    .min(0, 'Rate cannot be negative')
-    .max(10000, 'Rate cannot exceed 100%'), // 10000 bps = 100%
-  termMonths: z.number()
-    .int('Term must be a whole number')
-    .min(1, 'Term must be at least 1 month')
-    .max(600, 'Term cannot exceed 600 months'),
-  status: z.enum(['DRAFT', 'ACTIVE']).optional(),
-  borrowerId: z.string().uuid().optional(),
-  newBorrower: newBorrowerSchema.optional(),
-}).refine(
-  (data) => data.borrowerId || data.newBorrower,
-  { message: 'Either borrowerId or newBorrower is required' }
-);
-
-const updateLoanSchema = z.object({
-  principalAmountMicros: z.number()
-    .int('Amount must be an integer')
-    .positive('Amount must be positive')
-    .max(MAX_PRINCIPAL_MICROS, 'Amount too large')
-    .optional(),
-  interestRateBps: z.number()
-    .int('Rate must be an integer')
-    .min(0, 'Rate cannot be negative')
-    .max(10000, 'Rate cannot exceed 100%')
-    .optional(),
-  termMonths: z.number()
-    .int('Term must be a whole number')
-    .min(1, 'Term must be at least 1 month')
-    .max(600, 'Term cannot exceed 600 months')
-    .optional(),
-  status: z.enum(['DRAFT', 'ACTIVE']).optional(),
-  borrowerId: z.string().uuid().optional(),
-});
+// Helper to calculate remaining balance using dinero.js
+function calculateRemainingBalance(principalMicros: number, paymentAmounts: number[]): number {
+  let balance = money(principalMicros);
+  for (const amount of paymentAmounts) {
+    balance = subtractMoney(balance, money(amount));
+  }
+  return micros(balance);
+}
 
 // GET /loans - List all loans with borrower data
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -83,10 +43,31 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     // Create borrower lookup map
     const borrowerMap = new Map(borrowerList.map(b => [b.id, b]));
 
-    // Attach borrower to each loan
+    // Get payment totals for all loans
+    const loanIds = result.map(l => l.id);
+    const paymentsList = loanIds.length > 0
+      ? await db
+          .select({ loanId: payments.loanId, amountMicros: payments.amountMicros })
+          .from(payments)
+          .where(isNull(payments.deletedAt))
+      : [];
+
+    // Group payments by loan ID
+    const paymentsByLoan = new Map<string, number[]>();
+    for (const p of paymentsList) {
+      const existing = paymentsByLoan.get(p.loanId) || [];
+      existing.push(p.amountMicros);
+      paymentsByLoan.set(p.loanId, existing);
+    }
+
+    // Attach borrower and remaining balance to each loan
     const data = result.map(loan => ({
       ...loan,
       borrower: borrowerMap.get(loan.borrowerId) ?? null,
+      remainingBalanceMicros: calculateRemainingBalance(
+        loan.principalAmountMicros,
+        paymentsByLoan.get(loan.id) || []
+      ),
     }));
 
     res.json({ data });
@@ -98,6 +79,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // GET /loans/:id - Get single loan
 router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     const result = await db
       .select()
       .from(loans)
@@ -119,7 +105,18 @@ router.get('/:id', async (req: Request<IdParams>, res: Response, next: NextFunct
       borrower = borrowerResult[0] ?? null;
     }
 
-    res.json({ data: { ...loan, borrower } });
+    // Calculate remaining balance
+    const loanPayments = await db
+      .select({ amountMicros: payments.amountMicros })
+      .from(payments)
+      .where(and(eq(payments.loanId, loan.id), isNull(payments.deletedAt)));
+
+    const remainingBalanceMicros = calculateRemainingBalance(
+      loan.principalAmountMicros,
+      loanPayments.map(p => p.amountMicros)
+    );
+
+    res.json({ data: { ...loan, borrower, remainingBalanceMicros } });
   } catch (err) {
     next(err);
   }
@@ -155,11 +152,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       borrower = borrowerResult[0];
       borrowerId = borrower.id;
     } else if (borrowerId) {
-      // Fetch existing borrower
+      // Fetch existing borrower (must not be deleted)
       const borrowerResult = await db
         .select()
         .from(borrowers)
-        .where(eq(borrowers.id, borrowerId));
+        .where(and(eq(borrowers.id, borrowerId), isNull(borrowers.deletedAt)));
       if (!borrowerResult.length) {
         return res.status(400).json({
           error: { message: 'Borrower not found' },
@@ -188,6 +185,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 // PATCH /loans/:id - Update loan
 router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     const parsed = updateLoanSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -224,6 +226,14 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
       updates.status = parsed.data.status;
     }
     if (parsed.data.borrowerId !== undefined) {
+      // Verify borrower exists
+      const borrowerExists = await db
+        .select()
+        .from(borrowers)
+        .where(and(eq(borrowers.id, parsed.data.borrowerId), isNull(borrowers.deletedAt)));
+      if (!borrowerExists.length) {
+        return res.status(400).json({ error: { message: 'Borrower not found' } });
+      }
       updates.borrowerId = parsed.data.borrowerId;
     }
 
@@ -252,6 +262,11 @@ router.patch('/:id', async (req: Request<IdParams>, res: Response, next: NextFun
 // DELETE /loans/:id - Soft delete loan
 router.delete('/:id', async (req: Request<IdParams>, res: Response, next: NextFunction) => {
   try {
+    const idResult = uuidParamSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      return res.status(400).json({ error: { message: 'Invalid loan ID format' } });
+    }
+
     // Check if loan exists
     const existing = await db
       .select()

@@ -141,12 +141,12 @@ describe('Loans API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('rejects interest rate over 100%', async () => {
+    it('rejects interest rate over 50%', async () => {
       const response = await request(app)
         .post('/loans')
         .send({
           principalAmountMicros: 500000000,
-          interestRateBps: 15000, // 150%
+          interestRateBps: 6000, // 60% (over 50% cap)
           termMonths: 12,
         });
 
@@ -276,19 +276,12 @@ describe('Loans API', () => {
   // REQUIREMENT: GET /loans — List loans
   // ===========================================
   describe('GET /loans', () => {
-    it('returns a list of loans', async () => {
-      const response = await request(app).get('/loans');
-
-      expect(response.status).toBe(200);
-      expect(response.body.data).toBeDefined();
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
-
-    it('returns consistent response structure', async () => {
+    it('returns a list of loans wrapped in data property', async () => {
       const response = await request(app).get('/loans');
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
   });
 
@@ -297,18 +290,17 @@ describe('Loans API', () => {
   // ===========================================
   describe('GET /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
-      const response = await request(app).get('/loans/non-existent-id');
+      const response = await request(app).get('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(404);
       expect(response.body.error.message).toBe('Loan not found');
     });
 
-    // REQUIREMENT: Useful error responses
-    it('returns structured error for 404', async () => {
-      const response = await request(app).get('/loans/non-existent-id');
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app).get('/loans/not-a-uuid');
 
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toHaveProperty('message');
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
     });
   });
 
@@ -318,15 +310,24 @@ describe('Loans API', () => {
   describe('PATCH /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
       const response = await request(app)
-        .patch('/loans/non-existent-id')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ principalAmountMicros: 750000000 });
 
       expect(response.status).toBe(404);
     });
 
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app)
+        .patch('/loans/not-a-uuid')
+        .send({ principalAmountMicros: 750000000 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
+    });
+
     it('validates update data', async () => {
       const response = await request(app)
-        .patch('/loans/test-uuid-123')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ principalAmountMicros: -10000000 });
 
       expect(response.status).toBe(400);
@@ -334,7 +335,7 @@ describe('Loans API', () => {
 
     it('allows partial updates', async () => {
       const response = await request(app)
-        .patch('/loans/test-uuid-123')
+        .patch('/loans/00000000-0000-0000-0000-000000000000')
         .send({ status: 'ACTIVE' });
 
       // Will be 404 due to mock, but validates the request format is accepted
@@ -347,74 +348,36 @@ describe('Loans API', () => {
   // ===========================================
   describe('DELETE /loans/:id', () => {
     it('returns 404 for non-existent loan', async () => {
-      const response = await request(app).delete('/loans/non-existent-id');
+      const response = await request(app).delete('/loans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(404);
+    });
+
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await request(app).delete('/loans/not-a-uuid');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid loan ID format');
     });
   });
 
   // ===========================================
-  // REQUIREMENT: Appropriate status codes
+  // REQUIREMENT: Response format consistency
   // ===========================================
-  describe('HTTP Status Codes', () => {
-    it('returns 201 for successful creation', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({
-          principalAmountMicros: 500000000,
-          interestRateBps: 500,
-          termMonths: 12,
-          newBorrower: { name: 'Test User', email: 'test@example.com' },
-        });
-
-      expect(response.status).toBe(201);
-    });
-
-    it('returns 400 for validation errors', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({});
-
-      expect(response.status).toBe(400);
-    });
-
-    it('returns 404 for not found', async () => {
-      const response = await request(app).get('/loans/does-not-exist');
-
-      expect(response.status).toBe(404);
-    });
-
+  describe('Response Format', () => {
     it('returns 404 for unknown routes', async () => {
       const response = await request(app).get('/unknown-route');
 
       expect(response.status).toBe(404);
-    });
-  });
-
-  // ===========================================
-  // REQUIREMENT: API Response Structure
-  // ===========================================
-  describe('Response Structure', () => {
-    it('wraps successful responses in data property', async () => {
-      const response = await request(app).get('/loans');
-
-      expect(response.body).toHaveProperty('data');
+      expect(response.body.error.message).toBe('Not found');
     });
 
-    it('wraps errors in error property', async () => {
-      const response = await request(app)
-        .post('/loans')
-        .send({});
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toHaveProperty('message');
-    });
-
-    it('includes validation details on error', async () => {
+    it('includes validation details in error responses', async () => {
       const response = await request(app)
         .post('/loans')
         .send({ principalAmountMicros: -1 });
 
+      expect(response.body.error).toHaveProperty('message', 'Validation failed');
       expect(response.body.error).toHaveProperty('details');
     });
   });
