@@ -40,11 +40,7 @@ export const loans = pgTable('loans', {
   interestRateBps: integer('interest_rate_bps').notNull(),
   termMonths: integer('term_months').notNull(),
   status: text('status', { enum: LOAN_STATUSES }).default('DRAFT').notNull(),
-  // Status lifecycle timestamps
   statusChangedAt: timestamp('status_changed_at').defaultNow().notNull(),
-  submittedAt: timestamp('submitted_at'),
-  approvedAt: timestamp('approved_at'),
-  disbursedAt: timestamp('disbursed_at'),
   // For refinanced loans, reference to the new loan
   refinancedToLoanId: uuid('refinanced_to_loan_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

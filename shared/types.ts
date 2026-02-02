@@ -85,9 +85,6 @@ export interface Loan {
   status: LoanStatus;
   remainingBalanceMicros: number;
   statusChangedAt?: string;
-  submittedAt?: string | null;
-  approvedAt?: string | null;
-  disbursedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

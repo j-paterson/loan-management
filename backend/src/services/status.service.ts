@@ -93,17 +93,6 @@ export async function transition(
     updatedAt: now,
   };
 
-  // Set lifecycle timestamps based on transition
-  if (toStatus === 'SUBMITTED' && !loan.submittedAt) {
-    updateData.submittedAt = now;
-  }
-  if (toStatus === 'APPROVED' && !loan.approvedAt) {
-    updateData.approvedAt = now;
-  }
-  if (toStatus === 'ACTIVE' && !loan.disbursedAt) {
-    updateData.disbursedAt = now;
-  }
-
   // Perform the update and record event in a transaction
   const [updatedLoan] = await db.transaction(async (tx) => {
     // Update the loan
